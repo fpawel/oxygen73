@@ -46,3 +46,5 @@ SELECT *
 FROM product_voltage_time
 ORDER BY stored_at DESC
 LIMIT 1;
+
+--SELECT CAST( (julianday('2019-08-29 23:45:55') -julianday('2019-08-29 23:38:03')) * 86400. AS INTEGER);
