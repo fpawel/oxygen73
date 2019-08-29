@@ -14,45 +14,71 @@ import (
 //go:generate go run github.com/fpawel/gohelp/cmd/sqlstr/...
 
 type ProductVoltage struct {
-	Time    time.Time
-	Place   int
-	Number  int
-	Tension float64
+	StoredAt        time.Time
+	SeriesCreatedAt time.Time
+	Place           int
+	SerialNumber    int
+	Tension         float64
 }
 
 type Ambient struct {
-	Time        time.Time
-	Temperature float64
-	Pressure    float64
-	Humidity    float64
+	StoredAt        time.Time
+	SeriesCreatedAt time.Time
+	Temperature     float64
+	Pressure        float64
+	Humidity        float64
 }
 
-func UpdatedAt() (time.Time, bool){
-	var t time.Time
-	err := db.Get(&t, `SELECT time FROM product_voltage ORDER BY time DESC LIMIT 1`)
-	switch err {
-	case nil:
-		return t, true
-	case sql.ErrNoRows:
-		return t,false
-	default:
-		panic(err)
+type timeSql struct {
+	Year        int        `db:"year"`
+	Month       time.Month `db:"month"`
+	Day         int        `db:"day"`
+	Hour        int        `db:"hour"`
+	Minute      int        `db:"minute"`
+	Second      int        `db:"second"`
+	Millisecond int        `db:"millisecond"`
+}
+
+func (x timeSql) Time() time.Time {
+	return time.Date(
+		x.Year, x.Month, x.Day,
+		x.Hour, x.Minute, x.Second,
+		x.Millisecond*int(time.Millisecond/time.Nanosecond),
+		time.Local)
+}
+
+func ProductVoltageUpdatedAt() time.Time {
+	var t timeSql
+	err := db.Get(&t, `SELECT * FROM product_voltage_updated_at `)
+	if err == nil || err == sql.ErrNoRows {
+		return t.Time()
 	}
+	panic(err)
 }
 
-func AddProductVoltages( xs []ProductVoltage){
+func AddProductVoltage(place, serial int, tension float64) {
 	mu.Lock()
 	defer mu.Unlock()
-	productVoltageSeries = append(productVoltageSeries, xs...)
+	x := ProductVoltage{
+		StoredAt:     time.Now(),
+		Place:        place,
+		SerialNumber: serial,
+		Tension:      tension,
+	}
+	if len(productVoltageSeries) == 0 {
+		//var t timeSql
+	}
+
+	productVoltageSeries = append(productVoltageSeries, x)
 }
 
-func AddAmbient( x Ambient){
+func AddAmbient(x Ambient) {
 	mu.Lock()
 	defer mu.Unlock()
 	ambientSeries = append(ambientSeries, x)
 }
 
-func SaveAndCleanCache(){
+func SaveAndCleanCache() {
 	mu.Lock()
 	defer mu.Unlock()
 
@@ -68,12 +94,12 @@ func SaveAndCleanCache(){
 }
 
 func queryInsertProductVoltages() string {
-	queryStr := `INSERT INTO product_voltage(place, number, tension, time) VALUES `
+	queryStr := `INSERT INTO product_voltage(place, serial_number, tension, stored_at) VALUES `
 	for i, a := range productVoltageSeries {
 
-		s := fmt.Sprintf("(%d, %d, %v,", a.Place, a.Number, a.Tension) +
-			"STRFTIME('%Y-%m-%d %H:%M:%f','" +
-			a.Time.Format("2006-01-02 15:04:05.000") + "'))"
+		s := fmt.Sprintf("(%d, %d, %v,", a.Place, a.SerialNumber, a.Tension) +
+			"julianday(STRFTIME('%Y-%m-%d %H:%M:%f','" +
+			a.StoredAt.Format("2006-01-02 15:04:05.000") + "')))"
 		if i < len(productVoltageSeries)-1 {
 			s += ", "
 		}
@@ -83,12 +109,12 @@ func queryInsertProductVoltages() string {
 }
 
 func queryInsertAmbient() string {
-	queryStr := `INSERT INTO ambient(temperature, pressure, humidity, time) VALUES `
+	queryStr := `INSERT INTO ambient(temperature, pressure, humidity, stored_at) VALUES `
 	for i, a := range ambientSeries {
 
 		s := fmt.Sprintf("(%v, %v, %v,", a.Temperature, a.Pressure, a.Humidity) +
-			"STRFTIME('%Y-%m-%d %H:%M:%f','" +
-			a.Time.Format("2006-01-02 15:04:05.000") + "'))"
+			"julianday(STRFTIME('%Y-%m-%d %H:%M:%f','" +
+			a.StoredAt.Format("2006-01-02 15:04:05.000") + "')))"
 		if i < len(productVoltageSeries)-1 {
 			s += ", "
 		}
@@ -108,7 +134,7 @@ var (
 	mu                   sync.Mutex
 )
 
-func init(){
+func init() {
 	go func() {
 		t := time.NewTicker(time.Minute)
 		for {
