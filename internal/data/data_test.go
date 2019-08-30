@@ -12,24 +12,13 @@ func TestAddProductVoltages(t *testing.T) {
 
 	for n := 0; n < 100; n++ {
 		for place := 0; place < 50; place++ {
-			AddProductVoltages([]ProductVoltage{{
-				StoredAt:     time.Now(),
-				Place:        place,
-				SerialNumber: place + 100,
-				Tension:      rand.Float64() * 100,
-			}})
+			AddProductVoltage(place, place+100, rand.Float64()*100)
 		}
-		time.Sleep(time.Millisecond)
-		AddAmbient(Ambient{
-			StoredAt:    time.Now(),
-			Temperature: rand.Float64() * 100,
-			Pressure:    rand.Float64() * 100,
-			Humidity:    rand.Float64() * 100,
-		})
-		SaveAndCleanCache()
+		AddAmbient(rand.Float64()*100, rand.Float64()*100, rand.Float64()*100)
+		Save()
 	}
 }
 
 func TestUpdatedAt(t *testing.T) {
-	fmt.Println(ProductVoltageUpdatedAt())
+	fmt.Println(lastSavedProductVoltage())
 }
