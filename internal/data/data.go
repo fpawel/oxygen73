@@ -1,7 +1,6 @@
 package data
 
 import (
-	"database/sql"
 	"fmt"
 	"github.com/fpawel/gohelp"
 	"github.com/fpawel/oxygen73/internal"
@@ -13,15 +12,13 @@ import (
 
 //go:generate go run github.com/fpawel/gohelp/cmd/sqlstr/...
 
-func AddProductVoltage(place, serial int, tension float64) {
+func AddProductVoltage(place int, voltage float64) {
 	mu.Lock()
 	defer mu.Unlock()
 	productVoltageSeries = append(productVoltageSeries, productVoltageSample{
-		StoredAt:        time.Now(),
-		Place:           place,
-		SerialNumber:    serial,
-		Tension:         tension,
-		SeriesCreatedAt: getCurrentSeriesCreatedAt(),
+		StoredAt: time.Now(),
+		Place:    place,
+		Voltage:  voltage,
 	})
 }
 
@@ -29,23 +26,24 @@ func AddAmbient(temperature, pressure, humidity float64) {
 	mu.Lock()
 	defer mu.Unlock()
 	ambientSeries = append(ambientSeries, ambientSample{
-		StoredAt:        time.Now(),
-		SeriesCreatedAt: getCurrentSeriesCreatedAt(),
-		Temperature:     temperature,
-		Pressure:        pressure,
-		Humidity:        humidity,
+		StoredAt:    time.Now(),
+		Temperature: temperature,
+		Pressure:    pressure,
+		Humidity:    humidity,
 	})
 }
 
 func Save() {
 	mu.Lock()
 	defer mu.Unlock()
+	save()
+}
 
+func save() {
 	if len(productVoltageSeries) > 0 {
 		db.MustExec(queryInsertProductVoltages())
 		productVoltageSeries = nil
 	}
-
 	if len(ambientSeries) > 0 {
 		db.MustExec(queryInsertAmbient())
 		ambientSeries = nil
@@ -53,66 +51,35 @@ func Save() {
 }
 
 type productVoltageSample struct {
-	StoredAt        time.Time
-	SeriesCreatedAt time.Time
-	Place           int
-	SerialNumber    int
-	Tension         float64
+	StoredAt time.Time
+	Place    int
+	Voltage  float64
 }
 
 type ambientSample struct {
-	StoredAt        time.Time
-	SeriesCreatedAt time.Time
-	Temperature     float64
-	Pressure        float64
-	Humidity        float64
-}
-
-func lastSavedProductVoltage() (productVoltageSample, bool) {
-	var x struct {
-		StoredAt        string  `db:"stored_at_str"`
-		SeriesCreatedAt string  `db:"series_created_at_str"`
-		Place           int     `db:"place"`
-		SerialNumber    int     `db:"serial_number"`
-		Tension         float64 `db:"tension"`
-	}
-	err := db.Get(&x, `SELECT stored_at_str, series_created_at_str, serial_number, place, tension FROM product_voltage_updated_at`)
-	switch err {
-	case nil:
-		return productVoltageSample{
-			StoredAt:        parseTime(x.StoredAt),
-			SeriesCreatedAt: parseTime(x.SeriesCreatedAt),
-			Place:           x.Place,
-			SerialNumber:    x.SerialNumber,
-			Tension:         x.Tension,
-		}, true
-	case sql.ErrNoRows:
-		return productVoltageSample{}, false
-	default:
-		panic(err)
-	}
-}
-
-func getCurrentSeriesCreatedAt() time.Time {
-	if len(productVoltageSeries) > 0 {
-		return productVoltageSeries[len(productVoltageSeries)-1].SeriesCreatedAt
-	}
-	if y, f := lastSavedProductVoltage(); f {
-		d := time.Since(y.StoredAt)
-		if d < 5*time.Minute {
-			return y.SeriesCreatedAt
-		}
-	}
-	return time.Now()
+	StoredAt    time.Time
+	Temperature float64
+	Pressure    float64
+	Humidity    float64
 }
 
 func queryInsertProductVoltages() string {
-	queryStr := `INSERT INTO product_voltage(place, serial_number, tension, stored_at, series_created_at) VALUES `
+	m := make(map[int]int64)
+
+	for _, x := range productVoltageSeries {
+		if _, f := m[x.Place]; f {
+			continue
+		}
+		var productID int
+		err := db.Get(productID,
+			`SELECT product_id FROM product WHERE party_id = (SELECT party_id FROM last_party) AND place = ?`,
+			x.Place)
+	}
+
+	queryStr := `INSERT INTO product_voltage(stored_at, product_id, voltage) VALUES `
 	for i, a := range productVoltageSeries {
 
-		s := fmt.Sprintf("(%d, %d, %v,", a.Place, a.SerialNumber, a.Tension) +
-			formatTimeAsQuery(a.StoredAt) + "," +
-			formatTimeAsQuery(a.SeriesCreatedAt) + ")"
+		s := "(" + formatTimeAsQuery(a.StoredAt) + fmt.Sprintf(", %d, %v)", a.ProductID, a.Voltage)
 		if i < len(productVoltageSeries)-1 {
 			s += ", "
 		}
@@ -122,12 +89,10 @@ func queryInsertProductVoltages() string {
 }
 
 func queryInsertAmbient() string {
-	queryStr := `INSERT INTO ambient(temperature, pressure, humidity, stored_at, series_created_at) VALUES `
+	queryStr := `INSERT INTO ambient(stored_at, temperature, pressure, humidity, ) VALUES `
 	for i, a := range ambientSeries {
-
-		s := fmt.Sprintf("(%v, %v, %v,", a.Temperature, a.Pressure, a.Humidity) +
-			formatTimeAsQuery(a.StoredAt) + "," +
-			formatTimeAsQuery(a.SeriesCreatedAt) + ")"
+		s := "(" + formatTimeAsQuery(a.StoredAt) + "," +
+			fmt.Sprintf("%v, %v, %v)", a.Temperature, a.Pressure, a.Humidity)
 		if i < len(productVoltageSeries)-1 {
 			s += ", "
 		}

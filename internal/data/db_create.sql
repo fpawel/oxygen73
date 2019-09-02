@@ -1,61 +1,53 @@
 PRAGMA foreign_keys = ON;
 PRAGMA encoding = 'UTF-8';
 
+CREATE TABLE IF NOT EXISTS party
+(
+    party_id   INTEGER PRIMARY KEY NOT NULL,
+    created_at TIMESTAMP           NOT NULL DEFAULT (DATETIME('now'))
+);
+
+CREATE VIEW IF NOT EXISTS last_party AS
+SELECT *
+FROM party
+ORDER BY created_at DESC
+LIMIT 1;
+
+CREATE TABLE IF NOT EXISTS product
+(
+    product_id   INTEGER PRIMARY KEY NOT NULL,
+    party_id     INTEGER             NOT NULL,
+    serial       SMALLINT            NOT NULL CHECK (serial > 0 ),
+    place        SMALLINT            NOT NULL CHECK (place >= 0 AND place < 50),
+    product_type SMALLINT            NOT NULL CHECK (product_type > 0),
+    UNIQUE (party_id, place),
+    UNIQUE (party_id, serial),
+    FOREIGN KEY (party_id) REFERENCES party (party_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS product_voltage
 (
-    stored_at         REAL    NOT NULL,
-    series_created_at REAL    NOT NULL,
-    place             INTEGER NOT NULL CHECK (place >= 0 AND place <= 49),
-    serial_number     INTEGER NOT NULL CHECK (serial_number > 0),
-    tension           REAL    NOT NULL,
-    PRIMARY KEY (stored_at, place, serial_number)
+    product_id INTEGER NOT NULL,
+    stored_at  REAL    NOT NULL,
+    voltage    REAL    NOT NULL,
+    PRIMARY KEY (stored_at, product_id),
+    FOREIGN KEY (product_id) REFERENCES product (product_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS ambient
 (
-    stored_at         REAL NOT NULL PRIMARY KEY,
-    series_created_at REAL NOT NULL,
-    temperature       REAL NOT NULL,
-    pressure          REAL NOT NULL,
-    humidity          REAL NOT NULL
+    stored_at   REAL NOT NULL PRIMARY KEY,
+    temperature REAL NOT NULL,
+    pressure    REAL NOT NULL,
+    humidity    REAL NOT NULL
 );
 
 DROP VIEW IF EXISTS product_voltage_time;
 CREATE VIEW IF NOT EXISTS product_voltage_time AS
-SELECT STRFTIME('%Y-%m-%d %H:%M:%f', series_created_at) as series_created_at_str,
-       STRFTIME('%Y-%m-%d %H:%M:%f', stored_at ) as stored_at_str,
-       CAST( (julianday('now', 'localtime') - stored_at) * 86400. / 60. AS INTEGER) AS minutes_elapsed,
-       *
+SELECT *, STRFTIME('%Y-%m-%d %H:%M:%f', stored_at) as stored_at_str
 FROM product_voltage;
 
-DROP VIEW IF EXISTS product_voltage_updated_at;
-CREATE VIEW IF NOT EXISTS product_voltage_updated_at AS
-SELECT *
-FROM product_voltage_time
-ORDER BY stored_at DESC
-LIMIT 1;
 
-DROP VIEW IF EXISTS product_voltage_series;
-CREATE VIEW IF NOT EXISTS product_voltage_series AS
-    WITH q1 AS (
-        SELECT series_created_at AS started_at,
-               max(stored_at) AS updated_at,
-               (max(stored_at) - min(stored_at)) * 86400. AS total_seconds
-        FROM product_voltage_time
-        GROUP BY series_created_at
-    )
-    SELECT started_at,
-           updated_at,
-           strftime('%Y-%m-%d %H:%M:%f', started_at) AS started_at_str,
-           strftime('%Y-%m-%d %H:%M:%f', updated_at) AS updated_at_str,
-           CAST( total_seconds / 60. AS INTEGER) AS minutes,
-           CAST( total_seconds % 60. AS INTEGER) AS seconds,
-           cast(strftime('%Y', started_at) AS INTEGER) AS year,
-           cast(strftime('%m', started_at) AS INTEGER) AS month,
-           cast(strftime('%d', started_at) AS INTEGER) AS day,
-           (SELECT series_created_at FROM product_voltage_updated_at) = started_at AS is_last
-    FROM q1;
-
-
+-- CAST((julianday('now', 'localtime') - stored_at) * 86400. / 60. AS INTEGER) AS minutes_elapsed,
 
 --SELECT CAST( (julianday('2019-08-29 23:45:55') -julianday('2019-08-29 23:38:03')) * 86400. AS INTEGER);

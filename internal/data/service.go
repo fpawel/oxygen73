@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/powerman/must"
-	"github.com/powerman/structlog"
 	"io"
 	"net/http"
 	"strconv"
@@ -19,20 +18,10 @@ type YearMonth struct {
 }
 
 type Series struct {
-	StartedAtJulianDay float64
-	StartedAt          TimeDelphi
-	UpdatedAt          TimeDelphi
-	IsLast             bool
-}
-
-type TimeDelphi struct {
-	Year        int
-	Month       time.Month
-	Day         int
-	Hour        int
-	Minute      int
-	Second      int
-	Millisecond int
+	StartedAt    float64 `db:"started_at"`
+	StartedAtStr string  `db:"started_at_str"`
+	UpdatedAtStr string  `db:"updated_at_str"`
+	IsLast       bool    `db:"is_last"`
 }
 
 func (_ *ChartsSvc) YearsMonths(_ struct{}, r *[]YearMonth) error {
@@ -46,91 +35,49 @@ ORDER BY started_at DESC`); err != nil {
 }
 
 func (_ *ChartsSvc) SeriesOfYearMonth(x YearMonth, r *[]Series) error {
-
-	var xs []struct {
-		StartedAtJulianDay float64 `db:"started_at"`
-		StartedAt          string  `db:"started_at_str"`
-		UpdatedAt          string  `db:"updated_at_str"`
-		IsLast             bool    `db:"is_last"`
-	}
+	var xs []Series
 	if err := db.Select(&xs, `
-SELECT * FROM product_voltage_series
+SELECT started_at, started_at_str, updated_at_str, is_last FROM product_voltage_series
 WHERE year = ?
   AND month = ?
 ORDER BY started_at`, x.Year, x.Month); err != nil {
 		panic(err)
 	}
-	for _, x := range xs {
-		*r = append(*r, Series{
-			StartedAt: timeDelphi(parseTime(x.StartedAt)),
-			UpdatedAt: timeDelphi(parseTime(x.UpdatedAt)),
-			IsLast:    x.IsLast,
-		})
-	}
 	return nil
-}
-
-func (_ *ChartsSvc) DeletePoints(r struct {
-	TimeFrom, TimeTo TimeDelphi
-}, rowsAffected *int64) error {
-
-	mu.Lock()
-	n := 0
-	for _, x := range productVoltageSeries {
-		if x.StoredAt.After(r.TimeFrom.Time()) && x.StoredAt.Before(r.TimeTo.Time()) {
-			productVoltageSeries[n] = x
-			n++
-		}
-	}
-	productVoltageSeries = productVoltageSeries[:n]
-	n = 0
-	for _, x := range ambientSeries {
-		if x.StoredAt.After(r.TimeFrom.Time()) && x.StoredAt.Before(r.TimeTo.Time()) {
-			ambientSeries[n] = x
-			n++
-		}
-	}
-	ambientSeries = ambientSeries[:n]
-	mu.Unlock()
-
-	var err error
-	*rowsAffected, err = db.MustExec(
-		`
-DELETE FROM product_voltage 
-WHERE stored_at >= julianday(?) AND stored_at <= julianday(?) `,
-		r.TimeFrom.Time().Format(parseTimeFormat),
-		r.TimeTo.Time().Format(parseTimeFormat)).RowsAffected()
-	return err
 }
 
 func HandleRequestSeries(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(200)
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Accept", "application/octet-stream")
-	qStr := r.URL.Query().Get("series")
-	series, err := strconv.ParseFloat(qStr, 64)
+	qStr := r.URL.Query().Get("started-at")
+	startedAt, err := strconv.ParseFloat(qStr, 64)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		must.Write(w, []byte( fmt.Sprintf("series: %q: %v", qStr, err) ))
 		return
 	}
-	type ptDelphi = struct {
-		TimeDelphi
-		Place        int     `db:"place"`
-		SerialNumber int     `db:"serial_number"`
-		Tension      float64 `db:"tension"`
+	type pt struct {
+		N    int
+		X, Y float64
 	}
-	var pts []ptDelphi
+	var pts []pt
+
+	if startedAt == getCurrentSeriesCreatedAt()
 
 	mu.Lock()
-	for _, x := range productVoltageSeries {
-		pts = append(pts, ptDelphi{
-			TimeDelphi:   timeDelphi(x.StoredAt),
-			Place:        x.Place,
-			SerialNumber: x.SerialNumber,
-			Tension:      x.Tension,
-		})
+	if len(productVoltageSeries) > 0 &&
+		productVoltageSeries[len(productVoltageSeries)-1].SeriesCreatedAt == seriesCretedAt {
+		for _, x := range productVoltageSeries {
+			pts = append(pts, ptDelphi{
+				TimeDelphi:   timeDelphi(x.StoredAt),
+				Place:        x.Place,
+				SerialNumber: x.SerialNumber,
+				Tension:      x.Tension,
+			})
+		}
 	}
+
 	mu.Unlock()
 
 	type ptSql = struct {
@@ -147,7 +94,7 @@ FROM product_voltage_time
 WHERE series_created_at = ?`, series; err != nil {
 		panic(err)
 	}
-	for _,x := range xs{
+	for _, x := range xs {
 		pts = append(pts, ptDelphi{
 			TimeDelphi:   timeDelphi(parseTime(x.StoredAt)),
 			Place:        x.Place,
@@ -235,4 +182,35 @@ func (x TimeDelphi) Time() time.Time {
 		x.Hour, x.Minute, x.Second,
 		x.Millisecond*int(time.Millisecond/time.Nanosecond),
 		time.Local)
+}
+
+func (_ *ChartsSvc) DeletePoints(r struct{ TimeFrom, TimeTo TimeDelphi }, rowsAffected *int64) error {
+
+	mu.Lock()
+	n := 0
+	for _, x := range productVoltageSeries {
+		if x.StoredAt.After(r.TimeFrom.Time()) && x.StoredAt.Before(r.TimeTo.Time()) {
+			productVoltageSeries[n] = x
+			n++
+		}
+	}
+	productVoltageSeries = productVoltageSeries[:n]
+	n = 0
+	for _, x := range ambientSeries {
+		if x.StoredAt.After(r.TimeFrom.Time()) && x.StoredAt.Before(r.TimeTo.Time()) {
+			ambientSeries[n] = x
+			n++
+		}
+	}
+	ambientSeries = ambientSeries[:n]
+	mu.Unlock()
+
+	var err error
+	*rowsAffected, err = db.MustExec(
+		`
+DELETE FROM product_voltage 
+WHERE stored_at >= julianday(?) AND stored_at <= julianday(?) `,
+		r.TimeFrom.Time().Format(parseTimeFormat),
+		r.TimeTo.Time().Format(parseTimeFormat)).RowsAffected()
+	return err
 }
