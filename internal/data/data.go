@@ -12,13 +12,13 @@ import (
 
 //go:generate go run github.com/fpawel/gohelp/cmd/sqlstr/...
 
-func AddProductVoltage(place int, voltage float64) {
+func AddProductVoltage(productID int64, voltage float64) {
 	mu.Lock()
 	defer mu.Unlock()
 	productVoltageSeries = append(productVoltageSeries, productVoltageSample{
-		StoredAt: time.Now(),
-		Place:    place,
-		Voltage:  voltage,
+		StoredAt:  time.Now(),
+		Voltage:   voltage,
+		ProductID: productID,
 	})
 }
 
@@ -51,9 +51,9 @@ func save() {
 }
 
 type productVoltageSample struct {
-	StoredAt time.Time
-	Place    int
-	Voltage  float64
+	StoredAt  time.Time
+	ProductID int64
+	Voltage   float64
 }
 
 type ambientSample struct {
@@ -64,18 +64,6 @@ type ambientSample struct {
 }
 
 func queryInsertProductVoltages() string {
-	m := make(map[int]int64)
-
-	for _, x := range productVoltageSeries {
-		if _, f := m[x.Place]; f {
-			continue
-		}
-		var productID int
-		err := db.Get(productID,
-			`SELECT product_id FROM product WHERE party_id = (SELECT party_id FROM last_party) AND place = ?`,
-			x.Place)
-	}
-
 	queryStr := `INSERT INTO product_voltage(stored_at, product_id, voltage) VALUES `
 	for i, a := range productVoltageSeries {
 
@@ -89,11 +77,11 @@ func queryInsertProductVoltages() string {
 }
 
 func queryInsertAmbient() string {
-	queryStr := `INSERT INTO ambient(stored_at, temperature, pressure, humidity, ) VALUES `
+	queryStr := `INSERT INTO ambient(stored_at, temperature, pressure, humidity ) VALUES `
 	for i, a := range ambientSeries {
-		s := "(" + formatTimeAsQuery(a.StoredAt) + "," +
-			fmt.Sprintf("%v, %v, %v)", a.Temperature, a.Pressure, a.Humidity)
-		if i < len(productVoltageSeries)-1 {
+		s := "(" + formatTimeAsQuery(a.StoredAt) +
+			fmt.Sprintf(", %v, %v, %v)", a.Temperature, a.Pressure, a.Humidity)
+		if i < len(ambientSeries)-1 {
 			s += ", "
 		}
 		queryStr += s
@@ -102,7 +90,7 @@ func queryInsertAmbient() string {
 }
 
 func parseTime(sqlStr string) time.Time {
-	t, err := time.ParseInLocation("2006-01-02 15:04:05.000", sqlStr, time.Now().Location())
+	t, err := time.ParseInLocation(parseTimeFormat, sqlStr, time.Now().Location())
 	if err != nil {
 		panic(err)
 	}
@@ -117,7 +105,7 @@ const parseTimeFormat = "2006-01-02 15:04:05.000"
 
 var (
 	db = func() *sqlx.DB {
-		db := gohelp.OpenSqliteDBx(filepath.Join(internal.DataDir(), "series.sqlite"))
+		db := gohelp.MustOpenSqliteDBx(filepath.Join(internal.DataDir(), "series.sqlite"))
 		db.MustExec(SQLCreate)
 		return db
 	}()
