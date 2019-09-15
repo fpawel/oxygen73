@@ -25,58 +25,109 @@ CREATE TABLE IF NOT EXISTS product
     FOREIGN KEY (party_id) REFERENCES party (party_id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS product_voltage
+CREATE TABLE IF NOT EXISTS measurement
 (
-    product_id INTEGER NOT NULL,
-    stored_at  REAL    NOT NULL,
-    voltage    REAL    NOT NULL,
-    PRIMARY KEY (stored_at, product_id),
-    FOREIGN KEY (product_id) REFERENCES product (product_id) ON DELETE CASCADE
+    stored_at   REAL NOT NULL PRIMARY KEY,
+    place0      REAL,
+    place1      REAL,
+    place2      REAL,
+    place3      REAL,
+    place4      REAL,
+    place5      REAL,
+    place6      REAL,
+    place7      REAL,
+    place8      REAL,
+    place9      REAL,
+    place10     REAL,
+    place11     REAL,
+    place12     REAL,
+    place13     REAL,
+    place14     REAL,
+    place15     REAL,
+    place16     REAL,
+    place17     REAL,
+    place18     REAL,
+    place19     REAL,
+    place20     REAL,
+    place21     REAL,
+    place22     REAL,
+    place23     REAL,
+    place24     REAL,
+    place25     REAL,
+    place26     REAL,
+    place27     REAL,
+    place28     REAL,
+    place29     REAL,
+    place30     REAL,
+    place31     REAL,
+    place32     REAL,
+    place33     REAL,
+    place34     REAL,
+    place35     REAL,
+    place36     REAL,
+    place37     REAL,
+    place38     REAL,
+    place39     REAL,
+    place40     REAL,
+    place41     REAL,
+    place42     REAL,
+    place43     REAL,
+    place44     REAL,
+    place45     REAL,
+    place46     REAL,
+    place47     REAL,
+    place48     REAL,
+    place49     REAL,
+    temperature REAL,
+    pressure    REAL,
+    humidity    REAL
 );
+
+CREATE VIEW IF NOT EXISTS last_bucket AS
+SELECT *
+FROM bucket
+ORDER BY created_at DESC
+LIMIT 1;
 
 CREATE TABLE IF NOT EXISTS bucket
 (
     created_at TIMESTAMP NOT NULL PRIMARY KEY DEFAULT (datetime('now')),
-    updated_at TIMESTAMP NOT NULL             DEFAULT (datetime('now'))
+    updated_at TIMESTAMP NOT NULL             DEFAULT (datetime('now')),
+    party_id   INTEGER   NOT NULL,
+    FOREIGN KEY (party_id) REFERENCES party (party_id) ON DELETE CASCADE
 );
 
 CREATE TRIGGER IF NOT EXISTS trigger_bucket_insert
     AFTER INSERT
-    ON product_voltage
+    ON measurement
     WHEN NOT EXISTS(SELECT created_at
                     FROM bucket) OR
-         (julianday('now') - julianday((SELECT updated_at
-                                        FROM bucket
-                                        ORDER BY created_at DESC
-                                        LIMIT 1))) * 86400. / 60. > 5
+         (new.stored_at - julianday((SELECT updated_at
+                                     FROM last_bucket))) * 86400. / 60. > 5
+        OR (SELECT party_id
+            FROM last_party) != (SELECT party_id
+                                 FROM last_bucket)
 
 BEGIN
-    INSERT INTO bucket (created_at, updated_at) VALUES (datetime('now'), datetime('now'));
+    INSERT INTO bucket (created_at, updated_at, party_id)
+    VALUES (datetime(new.stored_at), datetime(new.stored_at), (SELECT party_id FROM last_party));
 END;
 
 CREATE TRIGGER IF NOT EXISTS trigger_bucket_update
     AFTER INSERT
-    ON product_voltage
-    WHEN (julianday('now') - julianday((SELECT updated_at
-                                        FROM bucket
-                                        ORDER BY created_at DESC
-                                        LIMIT 1))) * 86400. / 60. < 5
+    ON measurement
+    WHEN (new.stored_at - julianday((SELECT updated_at
+                                     FROM bucket
+                                     ORDER BY created_at DESC
+                                     LIMIT 1))) * 86400. / 60. < 5
 BEGIN
     UPDATE bucket
-    SET updated_at = DATETIME('now')
+    SET updated_at = DATETIME(new.stored_at)
     WHERE created_at = (SELECT created_at
                         FROM bucket
                         ORDER BY created_at DESC
                         LIMIT 1);
 END;
-
-CREATE TABLE IF NOT EXISTS ambient
-(
-    stored_at   REAL NOT NULL PRIMARY KEY,
-    temperature REAL NOT NULL,
-    pressure    REAL NOT NULL,
-    humidity    REAL NOT NULL
-);
 
 -- CAST((julianday('now', 'localtime') - stored_at) * 86400. / 60. AS INTEGER) AS minutes_elapsed,
 

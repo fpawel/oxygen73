@@ -3,94 +3,86 @@ package data
 import (
 	"fmt"
 	"github.com/fpawel/gohelp"
-	"github.com/fpawel/oxygen73/internal"
 	"github.com/jmoiron/sqlx"
+	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
 
-//go:generate go run github.com/fpawel/gohelp/cmd/sqlstr/...
+//go:generate go run github.com/fpawel/gotools/cmd/sqlstr/...
 
-func AddProductVoltage(productID int64, voltage float64) {
-	mu.Lock()
-	defer mu.Unlock()
-	productVoltageSeries = append(productVoltageSeries, productVoltageSample{
-		StoredAt:  time.Now(),
-		Voltage:   voltage,
-		ProductID: productID,
-	})
+type DB struct {
+	db *sqlx.DB
+	ms []measurement
+	mu sync.Mutex
 }
 
-func AddAmbient(temperature, pressure, humidity float64) {
-	mu.Lock()
-	defer mu.Unlock()
-	ambientSeries = append(ambientSeries, ambientSample{
+type Measurement [53]*float64
+
+func OpenDev() *DB {
+	return Open(filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "fpawel", "oxygen73", "build", "series.sqlite"))
+}
+
+func OpenProd() *DB {
+	return Open(filepath.Join(filepath.Dir(os.Args[0]), "series.sqlite"))
+}
+
+func Open(filename string) *DB {
+	db := gohelp.MustOpenSqliteDBx(filename)
+	db.MustExec(SQLCreate)
+	return &DB{db: db}
+}
+
+func (x *DB) AddMeasurement(m Measurement) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+	x.ms = append(x.ms, measurement{
+		Measurement: m,
 		StoredAt:    time.Now(),
-		Temperature: temperature,
-		Pressure:    pressure,
-		Humidity:    humidity,
 	})
 }
 
-func Save() {
-	mu.Lock()
-	defer mu.Unlock()
-	save()
-}
-
-func save() {
-	if len(productVoltageSeries) > 0 {
-		db.MustExec(queryInsertProductVoltages())
-		productVoltageSeries = nil
-	}
-	if len(ambientSeries) > 0 {
-		db.MustExec(queryInsertAmbient())
-		ambientSeries = nil
+func (x *DB) Save() {
+	x.mu.Lock()
+	queryInsertMeasurements := x.queryInsertMeasurements()
+	x.mu.Unlock()
+	if len(queryInsertMeasurements) > 0 {
+		x.db.MustExec(queryInsertMeasurements)
 	}
 }
 
-type productVoltageSample struct {
-	StoredAt  time.Time
-	ProductID int64
-	Voltage   float64
+type measurement struct {
+	Measurement
+	StoredAt time.Time
 }
 
-type ambientSample struct {
-	StoredAt    time.Time
-	Temperature float64
-	Pressure    float64
-	Humidity    float64
-}
-
-func queryInsertProductVoltages() string {
-	queryStr := `INSERT INTO product_voltage(stored_at, product_id, voltage) VALUES `
-	for i, a := range productVoltageSeries {
-
-		s := "(" + formatTimeAsQuery(a.StoredAt) + fmt.Sprintf(", %d, %v)", a.ProductID, a.Voltage)
-		if i < len(productVoltageSeries)-1 {
-			s += ", "
+func (x *DB) queryInsertMeasurements() string {
+	if len(x.ms) == 0 {
+		return ""
+	}
+	var xs []string
+	for _, m := range x.ms {
+		var xsv []string
+		for _, v := range m.Measurement {
+			xsv = append(xsv, fmt.Sprintf("%v", v))
 		}
-		queryStr += s
+		xs = append(xs, fmt.Sprintf("(%s, %s)", formatTimeAsQuery(m.StoredAt), strings.Join(xsv, ",")))
 	}
-	return queryStr
-}
-
-func queryInsertAmbient() string {
-	queryStr := `INSERT INTO ambient(stored_at, temperature, pressure, humidity ) VALUES `
-	for i, a := range ambientSeries {
-		s := "(" + formatTimeAsQuery(a.StoredAt) +
-			fmt.Sprintf(", %v, %v, %v)", a.Temperature, a.Pressure, a.Humidity)
-		if i < len(ambientSeries)-1 {
-			s += ", "
-		}
-		queryStr += s
-	}
-	return queryStr
+	x.ms = nil
+	return `INSERT INTO measurement(
+stored_at, 
+place0, place1, place2, place3, place4, place5, place6, place7, place8, place9, 
+place10, place11, place12, place13, place14, place15, place16, place17, place18, place19,
+place20, place21, place22, place23, place24, place25, place26, place27, place28, place29, 
+place30, place31, place32, place33, place34, place35, place36, place37, place38, place39, 
+place40, place41, place42, place43, place44, place45, place46, place47, place48, place49, temperature, pressure, humidity
+) VALUES ` + strings.Join(xs, ",")
 }
 
 func parseTime(sqlStr string) time.Time {
-	t, err := time.ParseInLocation(parseTimeFormat, sqlStr, time.Now().Location())
+	t, err := time.ParseInLocation(timeLayout, sqlStr, time.Now().Location())
 	if err != nil {
 		panic(err)
 	}
@@ -98,28 +90,7 @@ func parseTime(sqlStr string) time.Time {
 }
 func formatTimeAsQuery(t time.Time) string {
 	return "julianday(STRFTIME('%Y-%m-%d %H:%M:%f','" +
-		t.Format(parseTimeFormat) + "'))"
+		t.Format(timeLayout) + "'))"
 }
 
-const parseTimeFormat = "2006-01-02 15:04:05.000"
-
-var (
-	db = func() *sqlx.DB {
-		db := gohelp.MustOpenSqliteDBx(filepath.Join(internal.DataDir(), "series.sqlite"))
-		db.MustExec(SQLCreate)
-		return db
-	}()
-	productVoltageSeries []productVoltageSample
-	ambientSeries        []ambientSample
-	mu                   sync.Mutex
-)
-
-func init() {
-	go func() {
-		t := time.NewTicker(time.Minute)
-		for {
-			<-t.C
-			Save()
-		}
-	}()
-}
+const timeLayout = "2006-01-02 15:04:05.000"
