@@ -1,96 +1,73 @@
 package data
 
 import (
-	"fmt"
 	"github.com/fpawel/gohelp"
 	"github.com/jmoiron/sqlx"
 	"os"
 	"path/filepath"
-	"strings"
-	"sync"
 	"time"
 )
 
 //go:generate go run github.com/fpawel/gotools/cmd/sqlstr/...
 
-type DB struct {
-	db *sqlx.DB
-	ms []measurement
-	mu sync.Mutex
+type Product struct {
+	Place     int32 `db:"place"`
+	ProductID int64 `db:"product_id"`
+	PartyID   int64 `db:"party_id"`
+	Serial    int32 `db:"serial"`
 }
 
-type Measurement [53]*float64
+type Party struct {
+	CreatedAt time.Time `db:"created_at"`
+	PartyID   int64     `db:"party_id"`
+}
 
-func OpenDev() *DB {
+func OpenDev() *sqlx.DB {
 	return Open(filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "fpawel", "oxygen73", "build", "series.sqlite"))
 }
 
-func OpenProd() *DB {
+func OpenProd() *sqlx.DB {
 	return Open(filepath.Join(filepath.Dir(os.Args[0]), "series.sqlite"))
 }
 
-func Open(filename string) *DB {
+func Open(filename string) *sqlx.DB {
 	db := gohelp.MustOpenSqliteDBx(filename)
 	db.MustExec(SQLCreate)
-	return &DB{db: db}
+	return db
 }
 
-func (x *DB) AddMeasurement(m Measurement) {
-	x.mu.Lock()
-	defer x.mu.Unlock()
-	x.ms = append(x.ms, measurement{
-		Measurement: m,
-		StoredAt:    time.Now(),
-	})
-}
-
-func (x *DB) Save() {
-	x.mu.Lock()
-	queryInsertMeasurements := x.queryInsertMeasurements()
-	x.mu.Unlock()
-	if len(queryInsertMeasurements) > 0 {
-		x.db.MustExec(queryInsertMeasurements)
+func GetParty(db *sqlx.DB, partyID int64) (p Party, err error) {
+	if partyID < 0 {
+		err = db.Get(&p, `SELECT * FROM last_party`)
+	} else {
+		err = db.Get(&p, `SELECT * FROM  party WHERE party_id = ?`, partyID)
 	}
+	return
 }
 
-type measurement struct {
-	Measurement
-	StoredAt time.Time
-}
-
-func (x *DB) queryInsertMeasurements() string {
-	if len(x.ms) == 0 {
-		return ""
+func ListProducts(db *sqlx.DB, partyID int64) ([]Product, error) {
+	xs := make([]Product, 50)
+	var (
+		ps  []Product
+		err error
+	)
+	if partyID < 0 {
+		err = db.Select(&ps, `
+SELECT * 
+FROM  product 
+WHERE party_id = (SELECT party_id FROM last_party) 
+ORDER BY place`)
+	} else {
+		err = db.Select(&ps, ` SELECT * FROM  product WHERE party_id = ? ORDER BY place`, partyID)
 	}
-	var xs []string
-	for _, m := range x.ms {
-		var xsv []string
-		for _, v := range m.Measurement {
-			xsv = append(xsv, fmt.Sprintf("%v", v))
-		}
-		xs = append(xs, fmt.Sprintf("(%s, %s)", formatTimeAsQuery(m.StoredAt), strings.Join(xsv, ",")))
-	}
-	x.ms = nil
-	return `INSERT INTO measurement(
-stored_at, 
-place0, place1, place2, place3, place4, place5, place6, place7, place8, place9, 
-place10, place11, place12, place13, place14, place15, place16, place17, place18, place19,
-place20, place21, place22, place23, place24, place25, place26, place27, place28, place29, 
-place30, place31, place32, place33, place34, place35, place36, place37, place38, place39, 
-place40, place41, place42, place43, place44, place45, place46, place47, place48, place49, temperature, pressure, humidity
-) VALUES ` + strings.Join(xs, ",")
-}
-
-func parseTime(sqlStr string) time.Time {
-	t, err := time.ParseInLocation(timeLayout, sqlStr, time.Now().Location())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return t
+	for _, p := range ps {
+		if p.Place < 0 || int(p.Place) >= len(xs) {
+			panic("unexpected")
+		}
+		xs[p.Place] = p
+	}
+	return xs, nil
 }
-func formatTimeAsQuery(t time.Time) string {
-	return "julianday(STRFTIME('%Y-%m-%d %H:%M:%f','" +
-		t.Format(timeLayout) + "'))"
-}
-
-const timeLayout = "2006-01-02 15:04:05.000"

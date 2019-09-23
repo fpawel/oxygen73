@@ -1,0 +1,2 @@
+thrift -r --out ./internal/thriftgen/ --gen go:package_prefix=github.com/fpawel/oxygen73/internal/thriftgen/  mainsvc.thrift
+thrift -r --out ./internal/thriftgen/ --gen go:package_prefix=github.com/fpawel/oxygen73/internal/thriftgen/  guisvc.thrift

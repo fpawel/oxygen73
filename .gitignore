@@ -1,14 +1,4 @@
-debug
-Win32
-bin
-.vscode/
-.idea/
-*.exe
 .idea
-build/*.sqlite
-build/*.json
-build/*.ini
-build/*.log
-build/*.position
-*.qtpl.go
-internal/api/notify/api_generated.go
+build
+internal/thriftgen
+internal/data/sql_create_generated.go
