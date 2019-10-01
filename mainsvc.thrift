@@ -8,6 +8,7 @@ service MainSvc {
    list<apitypes.Bucket> listBucketsOfYearMonth(1:i32 year, 2:i32 month)
    list<apitypes.Measurement> listMeasurements(1:apitypes.TimeUnixMillis timeFrom, 2:apitypes.TimeUnixMillis timeTo)
    oneway void createNewParty(1:list<apitypes.Product> products)
-   oneway void openClient()
-   oneway void closeClient()
+
+   list<apitypes.TimeUnixMillis> ListLogEntriesDays()
+   list<apitypes.LogEntry> LogEntriesOfDay(1:apitypes.TimeUnixMillis daytime, 2:string filter)
 }

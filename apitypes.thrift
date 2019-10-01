@@ -34,3 +34,8 @@ struct Measurement{
     4: double humidity
     5: list<double> places
 }
+
+struct LogEntry{
+    1: TimeUnixMillis time
+    2: string line
+}

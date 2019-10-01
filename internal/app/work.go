@@ -6,9 +6,7 @@ import (
 	"github.com/fpawel/comm/modbus"
 	"github.com/fpawel/oxygen73/internal/cfg"
 	"github.com/fpawel/oxygen73/internal/data"
-	"github.com/fpawel/oxygen73/internal/guiclient"
-	"github.com/fpawel/oxygen73/internal/thriftgen/apitypes"
-	"github.com/fpawel/oxygen73/internal/thriftgen/guisvc"
+	"github.com/fpawel/oxygen73/internal/gui"
 	"github.com/jmoiron/sqlx"
 	"sync"
 	"time"
@@ -54,15 +52,12 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				}
 
 				if err != nil {
-					guiclient.NotifyIfOpened(func(c guisvc.GuiSvc) error {
-						return c.NotifyStatus(ctx, false, "нет связи: "+cutErrStr(err))
-					})
+					gui.StatusErr(err)
 					pause(ctx.Done(), conf.Public.Comm.ReadTimeout())
 					continue workerLoop
 				}
-				guiclient.NotifyIfOpened(func(c guisvc.GuiSvc) error {
-					return c.NotifyStatus(ctx, true, "связь установлена")
-				})
+
+				gui.StatusOk("связь установлена")
 
 				if n == 0 {
 					measurement.Temperature = values[10]
@@ -73,15 +68,7 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 
 			measurement.StoredAt = time.Now()
 
-			guiclient.NotifyIfOpened(func(c guisvc.GuiSvc) error {
-				return c.NotifyMeasurement(ctx, &apitypes.Measurement{
-					StoredAt:    timeUnixMillis(measurement.StoredAt),
-					Temperature: measurement.Temperature,
-					Pressure:    measurement.Pressure,
-					Humidity:    measurement.Humidity,
-					Places:      measurement.Places[:],
-				})
-			})
+			gui.W{}.Measurement(measurement)
 
 			measurements = append(measurements, measurement)
 

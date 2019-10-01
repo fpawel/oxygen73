@@ -1,7 +1,7 @@
 package data
 
 import (
-	"github.com/fpawel/gohelp"
+	"github.com/fpawel/oxygen73/internal/pkg/must"
 	"github.com/jmoiron/sqlx"
 	"os"
 	"path/filepath"
@@ -31,7 +31,7 @@ func OpenProd() *sqlx.DB {
 }
 
 func Open(filename string) *sqlx.DB {
-	db := gohelp.MustOpenSqliteDBx(filename)
+	db := must.OpenSqliteDBx(filename)
 	db.MustExec(SQLCreate)
 	return db
 }

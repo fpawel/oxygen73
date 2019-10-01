@@ -3,7 +3,7 @@ package cfg
 import (
 	"encoding/json"
 	"github.com/fpawel/comm"
-	"github.com/fpawel/gohelp/must"
+	"github.com/fpawel/oxygen73/internal/pkg/must"
 	"github.com/powerman/structlog"
 	"io/ioutil"
 	"os"

@@ -2,9 +2,8 @@ package app
 
 import (
 	"context"
-	"github.com/fpawel/oxygen73/internal"
 	"github.com/fpawel/oxygen73/internal/data"
-	"github.com/fpawel/oxygen73/internal/guiclient"
+	"github.com/fpawel/oxygen73/internal/pkg/log/logfile"
 	"github.com/fpawel/oxygen73/internal/thriftgen/apitypes"
 	"github.com/fpawel/oxygen73/internal/thriftgen/mainsvc"
 	"github.com/jmoiron/sqlx"
@@ -13,28 +12,10 @@ import (
 )
 
 type mainSvcHandler struct {
-	db           *sqlx.DB
-	interruptApp context.CancelFunc
+	db *sqlx.DB
 }
 
 var _ mainsvc.MainSvc = mainSvcHandler{}
-
-func (x mainSvcHandler) OpenClient(ctx context.Context) error {
-	log.Info("open client")
-	go log.ErrIfFail(guiclient.Open)
-	return nil
-}
-
-func (x mainSvcHandler) CloseClient(ctx context.Context) error {
-	log.Info("close client")
-	go func() {
-		log.ErrIfFail(guiclient.Close)
-		if !internal.DevMode {
-			x.interruptApp()
-		}
-	}()
-	return nil
-}
 
 func (x mainSvcHandler) ListMeasurements(ctx context.Context, timeFrom apitypes.TimeUnixMillis,
 	timeTo apitypes.TimeUnixMillis) ([]*apitypes.Measurement, error) {
@@ -150,6 +131,32 @@ func (x mainSvcHandler) ListProducts(ctx context.Context, partyID int64) ([]*api
 
 func (x mainSvcHandler) CreateNewParty(ctx context.Context, products []*apitypes.Product) error {
 	return nil
+}
+
+func (x mainSvcHandler) ListLogEntriesDays(ctx context.Context) (r []apitypes.TimeUnixMillis, _ error) {
+	for _, t := range logfile.ListDays() {
+		r = append(r, timeUnixMillis(t))
+	}
+	return
+}
+
+// Parameters:
+//  - Daytime
+func (x mainSvcHandler) LogEntriesOfDay(ctx context.Context, daytime apitypes.TimeUnixMillis, filter string) (r []*apitypes.LogEntry, err error) {
+
+	var xs []logfile.Entry
+
+	if xs, err = logfile.Read(unixMillisToTime(daytime), filter); err != nil {
+		return nil, err
+	}
+
+	for _, a := range xs {
+		r = append(r, &apitypes.LogEntry{
+			Time: timeUnixMillis(a.Time),
+			Line: a.Line,
+		})
+	}
+	return
 }
 
 const timeLayout = "2006-01-02 15:04:05.000"
