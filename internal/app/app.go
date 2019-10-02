@@ -9,7 +9,6 @@ import (
 	"github.com/fpawel/oxygen73/internal/pkg/winapi"
 	"github.com/lxn/win"
 	"github.com/powerman/structlog"
-	"io"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,7 +16,7 @@ import (
 
 func Main() {
 
-	if winapi.IsWindow(winapi.FindWindow(internal.WindowClass)) {
+	if winapi.IsWindow(winapi.FindWindowClass(internal.WindowClass)) {
 		log.Fatalln("window class", internal.WindowClass, "already exists")
 	}
 
@@ -71,21 +70,10 @@ func Main() {
 	log.ErrIfFail(db.Close)
 
 	log.Debug("закрыть окно gui")
-	win.SendMessage(gui.HWndSource(), win.WM_CLOSE, 0, 0)
+	win.SendMessage(winapi.FindWindowClass(internal.WindowClass), win.WM_CLOSE, 0, 0)
 
 	// записать в лог что всё хорошо
 	log.Debug("all canceled and closed")
-}
-
-func GUIWriter() io.Writer {
-	return guiWriter{}
-}
-
-type guiWriter struct{}
-
-func (x guiWriter) Write(p []byte) (int, error) {
-	go gui.W{}.WriteConsole(string(p))
-	return len(p), nil
 }
 
 var (

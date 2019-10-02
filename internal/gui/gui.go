@@ -2,6 +2,7 @@ package gui
 
 import (
 	"fmt"
+	"github.com/fpawel/gotools/pkg/copydata"
 	"github.com/fpawel/oxygen73/internal"
 	"github.com/fpawel/oxygen73/internal/data"
 	"github.com/fpawel/oxygen73/internal/pkg/winapi"
@@ -19,26 +20,24 @@ const (
 	MsgMeasurement
 )
 
-type W struct{}
-
-func (x W) WriteConsole(str string) uintptr {
-	return winapi.CopyDataSendString(HWndSource(), hWndTarget(), MsgWriteConsole, str)
+func WriteConsole(str string) bool {
+	return w.SendString(MsgWriteConsole, str)
 }
 
-func (x W) Status(m StatusMessage) uintptr {
-	return winapi.CopyDataSendJson(HWndSource(), hWndTarget(), MsgStatus, m)
+func Status(m StatusMessage) bool {
+	return w.SendJson(MsgStatus, m)
 }
 
-func (x W) Measurement(m data.Measurement) uintptr {
-	return winapi.CopyDataSendJson(HWndSource(), hWndTarget(), MsgMeasurement, m)
+func Measurement(m data.Measurement) bool {
+	return w.SendJson(MsgMeasurement, m)
 }
 
-func StatusOk(text string) uintptr {
-	return W{}.Status(StatusMessage{Ok: true, Text: text})
+func StatusOk(text string) bool {
+	return Status(StatusMessage{Ok: true, Text: text})
 }
 
-func StatusErr(err error) uintptr {
-	return W{}.Status(StatusMessage{Ok: false, Text: cutErrStr(err), Detail: err.Error()})
+func StatusErr(err error) bool {
+	return Status(StatusMessage{Ok: false, Text: cutErrStr(err), Detail: err.Error()})
 }
 
 type StatusMessage struct {
@@ -55,14 +54,6 @@ func cutErrStr(err error) string {
 		return strings.Split(s, ":")[0]
 	}
 	return s
-}
-
-func HWndSource() win.HWND {
-	return winapi.FindWindow(internal.WindowClass)
-}
-
-func hWndTarget() win.HWND {
-	return winapi.FindWindow(internal.DelphiWindowClass)
 }
 
 func Handle() {
@@ -88,4 +79,8 @@ func Handle() {
 
 var (
 	log = structlog.New()
+	w   = copydata.WndClass{
+		Src:  internal.WindowClass,
+		Dest: internal.DelphiWindowClass,
+	}
 )

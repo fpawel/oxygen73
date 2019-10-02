@@ -68,7 +68,7 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 
 			measurement.StoredAt = time.Now()
 
-			gui.W{}.Measurement(measurement)
+			gui.Measurement(measurement)
 
 			measurements = append(measurements, measurement)
 

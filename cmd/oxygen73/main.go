@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"github.com/fpawel/oxygen73/internal"
 	"github.com/fpawel/oxygen73/internal/app"
-	"github.com/fpawel/oxygen73/internal/gui"
 	"github.com/fpawel/oxygen73/internal/pkg"
-	"github.com/fpawel/oxygen73/internal/pkg/log/logfile"
 	"github.com/powerman/structlog"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -31,13 +28,8 @@ func main() {
 
 	pkg.InitLog()
 
-	logfileOutput := logfile.NewOutput()
-	defer structlog.DefaultLogger.ErrIfFail(logfileOutput.Close)
-
 	structlog.DefaultLogger.
-		SetLogLevel(structlog.ParseLevel(*logLevel)).
-		SetOutput(io.MultiWriter(os.Stderr, gui.NewWriter(), logfileOutput))
-
+		SetLogLevel(structlog.ParseLevel(*logLevel))
 	app.Main()
 }
 
@@ -49,16 +41,7 @@ func parseBool(s string) bool {
 	return v
 }
 
-// todo: основной воркер, выполняющий опрос и запись в бд
 // todo: GUI: логгирование
-
-// todo: сервер GUI + клиент backend
-// todo: 	- оповещение: новые измерения
-// todo: 	- оповещение: сообщения консоли GUI
-// todo: 	- оповещение: сообщения консоли GUI
-
 // todo: настройки приложения в GUI
-
 // todo: конфигурация toml в GUI
-
 // todo: удаление букетов
