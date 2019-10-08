@@ -40,5 +40,8 @@ MethodLoop:
 		}
 		log.Fatal(m[j], ": not found")
 	}
+
+	//pkg, err := importer.Default().Import("time")
+
 	return m
 }

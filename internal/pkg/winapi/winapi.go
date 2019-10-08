@@ -9,21 +9,9 @@ import (
 )
 
 var (
-	libUser32     = mustLoadLibrary("user32.dll")
-	isWindow      = mustGetProcAddress(libUser32, "IsWindow")
-	getClassNameW = mustGetProcAddress(libUser32, "GetClassNameW")
+	libUser32 = mustLoadLibrary("user32.dll")
+	isWindow  = mustGetProcAddress(libUser32, "IsWindow")
 )
-
-func FindOrCreateNewWindowWithClassName(windowClassName string) win.HWND {
-	hWnd := FindWindow(windowClassName)
-	if !IsWindow(hWnd) {
-		hWnd = NewWindowWithClassName(windowClassName, win.DefWindowProc)
-	}
-	if !IsWindow(hWnd) {
-		panic(windowClassName)
-	}
-	return hWnd
-}
 
 func IsWindow(hWnd win.HWND) bool {
 	ret, _, _ := syscall.Syscall(isWindow, 1,
@@ -34,7 +22,7 @@ func IsWindow(hWnd win.HWND) bool {
 	return ret != 0
 }
 
-func FindWindow(className string) win.HWND {
+func FindWindowClass(className string) win.HWND {
 	ptrClassName := must.UTF16PtrFromString(className)
 	return win.FindWindow(ptrClassName, nil)
 }
@@ -122,20 +110,4 @@ func mustLoadLibrary(name string) uintptr {
 		log.Panicln("load library:", name, ":", err)
 	}
 	return uintptr(lib)
-}
-
-func mustLoadDLL(name string) *syscall.DLL {
-	dll, err := syscall.LoadDLL("Advapi32.dll")
-	if err != nil {
-		log.Panicln("load dll:", name, ":", err)
-	}
-	return dll
-}
-
-func mustFindProc(dll *syscall.DLL, name string) *syscall.Proc {
-	proc, err := dll.FindProc(name)
-	if err != nil {
-		log.Panicln("find procedure address:", name, ":", err)
-	}
-	return proc
 }

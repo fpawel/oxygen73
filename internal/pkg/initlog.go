@@ -5,7 +5,7 @@ import (
 	"github.com/powerman/structlog"
 )
 
-func InitLog() {
+func InitLog() *structlog.Logger {
 	structlog.DefaultLogger.
 		//SetLogFormat(structlog.JSON).
 		//SetTimeFormat(time.RFC3339Nano).
@@ -29,4 +29,5 @@ func InitLog() {
 			structlog.KeyUnit:   " %6[2]s",
 		})
 	modbus.SetLogKeysFormat()
+	return structlog.DefaultLogger
 }

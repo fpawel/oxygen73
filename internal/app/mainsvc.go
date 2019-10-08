@@ -2,8 +2,8 @@ package app
 
 import (
 	"context"
+	"github.com/fpawel/gotools/pkg/logfile"
 	"github.com/fpawel/oxygen73/internal/data"
-	"github.com/fpawel/oxygen73/internal/pkg/log/logfile"
 	"github.com/fpawel/oxygen73/internal/thriftgen/apitypes"
 	"github.com/fpawel/oxygen73/internal/thriftgen/mainsvc"
 	"github.com/jmoiron/sqlx"
