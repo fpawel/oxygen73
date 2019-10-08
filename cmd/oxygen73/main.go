@@ -5,11 +5,8 @@ import (
 	"fmt"
 	"github.com/fpawel/oxygen73/internal"
 	"github.com/fpawel/oxygen73/internal/app"
-	"github.com/fpawel/oxygen73/internal/gui"
 	"github.com/fpawel/oxygen73/internal/pkg"
-	"github.com/fpawel/oxygen73/internal/pkg/log/logfile"
 	"github.com/powerman/structlog"
-	"io"
 	"os"
 	"strconv"
 	"strings"
@@ -28,16 +25,8 @@ func main() {
 		fmt.Sprintf("development mode on(true|false), default in OXYGEN73_DEVMODE env var: %t", defaultDevMode))
 	flag.Parse()
 	internal.DevMode = *devMode
-
 	pkg.InitLog()
-
-	logfileOutput := logfile.NewOutput()
-	defer structlog.DefaultLogger.ErrIfFail(logfileOutput.Close)
-
-	structlog.DefaultLogger.
-		SetLogLevel(structlog.ParseLevel(*logLevel)).
-		SetOutput(io.MultiWriter(os.Stderr, gui.NewWriter(), logfileOutput))
-
+	structlog.DefaultLogger.SetLogLevel(structlog.ParseLevel(*logLevel))
 	app.Main()
 }
 

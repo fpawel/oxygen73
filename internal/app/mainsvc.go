@@ -145,8 +145,10 @@ func (x mainSvcHandler) ListLogEntriesDays(ctx context.Context) (r []apitypes.Ti
 func (x mainSvcHandler) LogEntriesOfDay(ctx context.Context, daytime apitypes.TimeUnixMillis, filter string) (r []*apitypes.LogEntry, err error) {
 
 	var xs []logfile.Entry
+	t := unixMillisToTime(daytime)
+	t = t.In(time.Local)
 
-	if xs, err = logfile.Read(unixMillisToTime(daytime), filter); err != nil {
+	if xs, err = logfile.Read(t, filter); err != nil {
 		return nil, err
 	}
 
