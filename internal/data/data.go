@@ -1,6 +1,7 @@
 package data
 
 import (
+	"database/sql"
 	"github.com/fpawel/oxygen73/internal/pkg/must"
 	"github.com/jmoiron/sqlx"
 	"os"
@@ -33,6 +34,9 @@ func OpenProd() *sqlx.DB {
 func Open(filename string) *sqlx.DB {
 	db := must.OpenSqliteDBx(filename)
 	db.MustExec(SQLCreate)
+
+	// создать новую партию, если партия не была
+
 	return db
 }
 
@@ -70,4 +74,20 @@ ORDER BY place`)
 		xs[p.Place] = p
 	}
 	return xs, nil
+}
+
+func MustLastParty(db *sqlx.DB) (party Party) {
+	err := db.Get(&party, `SELECT * FROM last_party`)
+	if err == nil {
+		return
+	}
+	if err != sql.ErrNoRows {
+		panic(err)
+	}
+	db.MustExec(`INSERT INTO party DEFAULT VALUES;`)
+	if err = db.Get(&party, `SELECT * FROM last_party`); err != nil {
+		panic(err)
+	}
+	db.MustExec(`INSERT INTO product(party_id, serial, place) VALUES (?, 1, 0);`, party.PartyID)
+	return
 }

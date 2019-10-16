@@ -140,9 +140,6 @@ FROM bucket
 INNER JOIN party USING (party_id)
 ORDER BY bucket.created_at;
 
-
--- DROP VIEW IF EXISTS measurement_ids;
---
 -- CREATE VIEW measurement_ids AS
 -- SELECT (SELECT count(*) + 1 FROM measurement WHERE tm < O.tm) AS id, O.*
 -- FROM measurement O

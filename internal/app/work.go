@@ -23,6 +23,8 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
+	data.MustLastParty(db)
+
 	go func() {
 		defer wg.Done()
 

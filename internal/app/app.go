@@ -11,6 +11,7 @@ import (
 	"github.com/powerman/structlog"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 )
 
@@ -39,6 +40,7 @@ func Main() {
 
 	// старт цикла оконных сообщений окна связи с gui
 	go func() {
+		runtime.LockOSThread()
 		gui.Handle()
 		interrupt()
 	}()

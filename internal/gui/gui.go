@@ -8,7 +8,6 @@ import (
 	"github.com/fpawel/oxygen73/internal/pkg/winapi"
 	"github.com/lxn/win"
 	"github.com/powerman/structlog"
-	"runtime"
 	"strings"
 )
 
@@ -56,11 +55,9 @@ func cutErrStr(err error) string {
 	return s
 }
 
+// Handle выполняет бесконечный цикл с обработкой оконных сообщений.
+// Необходим для работы механизма отправки сообщений WM_COPYDATA
 func Handle() {
-
-	// цикл оконных сообщений. необходим для работы механизма отправки сообщений WM_COPYDATA
-	// должен работать в том же потоке ОС, в котором был создан объект окна
-	runtime.LockOSThread()
 
 	// инициализация окна окно связи с GUI для отправки сообщений WM_COPYDATA
 	winapi.NewWindowWithClassName(internal.WindowClass, win.DefWindowProc)
