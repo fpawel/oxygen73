@@ -3,6 +3,7 @@ package data
 import (
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	"github.com/powerman/structlog"
 	"strconv"
 	"strings"
 	"time"
@@ -43,9 +44,11 @@ place20, place21, place22, place23, place24, place25, place26, place27, place28,
 place30, place31, place32, place33, place34, place35, place36, place37, place38, place39, 
 place40, place41, place42, place43, place44, place45, place46, place47, place48, place49, temperature, pressure, humidity
 ) VALUES ` + "  " + strings.Join(xs, ",")
-
-	_, err := db.Exec(strQueryInsert)
-	return err
+	if _, err := db.Exec(strQueryInsert); err != nil {
+		err = fmt.Errorf("fail to insert measurements: %w", err)
+		return log.Err(err, "sql", fmt.Sprintf("`%s`", strQueryInsert))
+	}
+	return nil
 }
 
 //func parseTime(sqlStr string) time.Time {
@@ -62,3 +65,5 @@ func formatTimeAsQuery(t time.Time) string {
 }
 
 const timeLayout = "2006-01-02 15:04:05.000"
+
+var log = structlog.New()
