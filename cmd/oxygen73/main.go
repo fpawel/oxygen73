@@ -25,11 +25,8 @@ func main() {
 		fmt.Sprintf("development mode on(true|false), default in OXYGEN73_DEVMODE env var: %t", defaultDevMode))
 	flag.Parse()
 	internal.DevMode = *devMode
-
 	pkg.InitLog()
-
-	structlog.DefaultLogger.
-		SetLogLevel(structlog.ParseLevel(*logLevel))
+	structlog.DefaultLogger.SetLogLevel(structlog.ParseLevel(*logLevel))
 	app.Main()
 }
 
@@ -41,7 +38,16 @@ func parseBool(s string) bool {
 	return v
 }
 
+// todo: основной воркер, выполняющий опрос и запись в бд
 // todo: GUI: логгирование
+
+// todo: сервер GUI + клиент backend
+// todo: 	- оповещение: новые измерения
+// todo: 	- оповещение: сообщения консоли GUI
+// todo: 	- оповещение: сообщения консоли GUI
+
 // todo: настройки приложения в GUI
+
 // todo: конфигурация toml в GUI
+
 // todo: удаление букетов
