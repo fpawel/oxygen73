@@ -3,21 +3,29 @@ package app
 import (
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/fpawel/oxygen73/internal/thriftgen/mainsvc"
+	"github.com/jmoiron/sqlx"
 	"golang.org/x/sys/windows/registry"
 	"net"
 )
 
-func newServer(handler mainsvc.MainSvc) thrift.TServer {
+func runServer(db *sqlx.DB) func() {
 	serverAddr := determineServerAddr()
 	transport, err := thrift.NewTServerSocket(serverAddr)
 	if err != nil {
 		panic(err)
 	}
+	handler := &mainSvcHandler{db: db}
 	processor := mainsvc.NewMainSvcProcessor(handler)
 	server := thrift.NewTSimpleServer4(processor, transport,
 		thrift.NewTTransportFactory(), thrift.NewTBinaryProtocolFactoryDefault())
 	log.Println(serverAddr)
-	return server
+
+	go log.ErrIfFail(server.Serve, "problem", "`failed to serve`")
+
+	return func() {
+		log.ErrIfFail(server.Stop, "problem", "`failed to stop server`")
+		handler.Wait()
+	}
 }
 
 func determineServerAddr() string {

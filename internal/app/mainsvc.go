@@ -4,23 +4,32 @@ import (
 	"context"
 	"github.com/fpawel/gotools/pkg/logfile"
 	"github.com/fpawel/oxygen73/internal/data"
+	"github.com/fpawel/oxygen73/internal/gui"
 	"github.com/fpawel/oxygen73/internal/thriftgen/apitypes"
 	"github.com/fpawel/oxygen73/internal/thriftgen/mainsvc"
 	"github.com/jmoiron/sqlx"
 	"math"
+	"sync"
 	"time"
 )
 
 type mainSvcHandler struct {
 	db *sqlx.DB
+	wg sync.WaitGroup
 }
 
-var _ mainsvc.MainSvc = mainSvcHandler{}
+var _ mainsvc.MainSvc = new(mainSvcHandler)
 
-func (x mainSvcHandler) ListMeasurements(ctx context.Context, timeFrom apitypes.TimeUnixMillis,
-	timeTo apitypes.TimeUnixMillis) ([]*apitypes.Measurement, error) {
-	var xs []measurement
-	err := x.db.Select(&xs, `
+func (x *mainSvcHandler) Wait() {
+	x.wg.Wait()
+}
+
+func (x *mainSvcHandler) RequestMeasurements(ctx context.Context, timeFrom apitypes.TimeUnixMillis, timeTo apitypes.TimeUnixMillis) error {
+	x.wg.Add(1)
+	go func() {
+		defer x.wg.Done()
+		var xs []measurement
+		err := x.db.Select(&xs, `
 SELECT stored_at, 
        temperature, pressure, humidity,
        place0, place1, place2, place3, place4, place5, place6, place7, place8, place9,
@@ -29,32 +38,39 @@ SELECT stored_at,
        place30, place31, place32, place33, place34, place35, place36, place37, place38, place39,
        place40, place41, place42, place43, place44, place45, place46, place47, place48, place49
 FROM measurement1 WHERE tm BETWEEN julianday(?) AND julianday(?)`,
-		unixMillisToTime(timeFrom), unixMillisToTime(timeTo))
-	if err != nil {
-		return nil, err
-	}
-	ms := make([]*apitypes.Measurement, len(xs))
-	f := floatOrNan
-	for i, x := range xs {
-		t := parseTime(x.StoredAt)
-		ms[i] = &apitypes.Measurement{
-			StoredAt:    timeUnixMillis(t),
-			Temperature: f(x.Temperature),
-			Pressure:    f(x.Pressure),
-			Humidity:    f(x.Humidity),
-			Places: []float64{
-				f(x.Place0), f(x.Place1), f(x.Place2), f(x.Place3), f(x.Place4), f(x.Place5), f(x.Place6), f(x.Place7), f(x.Place8), f(x.Place9),
-				f(x.Place10), f(x.Place11), f(x.Place12), f(x.Place13), f(x.Place14), f(x.Place15), f(x.Place16), f(x.Place17), f(x.Place18), f(x.Place19),
-				f(x.Place20), f(x.Place21), f(x.Place22), f(x.Place23), f(x.Place24), f(x.Place25), f(x.Place26), f(x.Place27), f(x.Place28), f(x.Place29),
-				f(x.Place30), f(x.Place31), f(x.Place32), f(x.Place33), f(x.Place34), f(x.Place35), f(x.Place36), f(x.Place37), f(x.Place38), f(x.Place39),
-				f(x.Place40), f(x.Place41), f(x.Place42), f(x.Place43), f(x.Place44), f(x.Place45), f(x.Place46), f(x.Place47), f(x.Place48), f(x.Place49),
-			},
+			unixMillisToTime(timeFrom), unixMillisToTime(timeTo))
+		if err != nil {
+			log.PrintErr("select measurements fail",
+				"reason", err,
+				"time_from", unixMillisToTime(timeFrom),
+				"time_to", unixMillisToTime(timeTo))
+			return
 		}
-	}
-	return ms, nil
+		ms := make([]data.Measurement, len(xs))
+		f := floatOrNan
+		for i, x := range xs {
+			t := parseTime(x.StoredAt)
+			ms[i] = data.Measurement{
+				StoredAt:    t,
+				Temperature: f(x.Temperature),
+				Pressure:    f(x.Pressure),
+				Humidity:    f(x.Humidity),
+				Places: [50]float64{
+					f(x.Place0), f(x.Place1), f(x.Place2), f(x.Place3), f(x.Place4), f(x.Place5), f(x.Place6), f(x.Place7), f(x.Place8), f(x.Place9),
+					f(x.Place10), f(x.Place11), f(x.Place12), f(x.Place13), f(x.Place14), f(x.Place15), f(x.Place16), f(x.Place17), f(x.Place18), f(x.Place19),
+					f(x.Place20), f(x.Place21), f(x.Place22), f(x.Place23), f(x.Place24), f(x.Place25), f(x.Place26), f(x.Place27), f(x.Place28), f(x.Place29),
+					f(x.Place30), f(x.Place31), f(x.Place32), f(x.Place33), f(x.Place34), f(x.Place35), f(x.Place36), f(x.Place37), f(x.Place38), f(x.Place39),
+					f(x.Place40), f(x.Place41), f(x.Place42), f(x.Place43), f(x.Place44), f(x.Place45), f(x.Place46), f(x.Place47), f(x.Place48), f(x.Place49),
+				},
+			}
+		}
+		gui.Measurements(ms)
+	}()
+	return nil
+
 }
 
-func (x mainSvcHandler) ListYearMonths(ctx context.Context) ([]*apitypes.YearMonth, error) {
+func (x *mainSvcHandler) ListYearMonths(ctx context.Context) ([]*apitypes.YearMonth, error) {
 	var xs []*apitypes.YearMonth
 	if err := x.db.Select(&xs, `
 SELECT DISTINCT year,  month
@@ -72,7 +88,7 @@ ORDER BY year DESC, month DESC`); err != nil {
 	return xs, nil
 }
 
-func (x mainSvcHandler) GetParty(ctx context.Context, partyID int64) (*apitypes.Party, error) {
+func (x *mainSvcHandler) GetParty(ctx context.Context, partyID int64) (*apitypes.Party, error) {
 	p, err := data.GetParty(x.db, partyID)
 	if err != nil {
 		return nil, err
@@ -83,7 +99,7 @@ func (x mainSvcHandler) GetParty(ctx context.Context, partyID int64) (*apitypes.
 	}, nil
 }
 
-func (x mainSvcHandler) ListBucketsOfYearMonth(ctx context.Context, year int32, month int32) ([]*apitypes.Bucket, error) {
+func (x *mainSvcHandler) ListBucketsOfYearMonth(ctx context.Context, year int32, month int32) ([]*apitypes.Bucket, error) {
 	var xs []struct {
 		BucketID       int64     `db:"bucket_id"`
 		PartyID        int64     `db:"party_id"`
@@ -112,7 +128,7 @@ WHERE year = ?
 	return r, nil
 }
 
-func (x mainSvcHandler) ListProducts(ctx context.Context, partyID int64) ([]*apitypes.Product, error) {
+func (x *mainSvcHandler) ListProducts(ctx context.Context, partyID int64) ([]*apitypes.Product, error) {
 	xs, err := data.ListProducts(x.db, partyID)
 	if err != nil {
 		return nil, err
@@ -129,11 +145,11 @@ func (x mainSvcHandler) ListProducts(ctx context.Context, partyID int64) ([]*api
 	return ps, nil
 }
 
-func (x mainSvcHandler) CreateNewParty(ctx context.Context, products []*apitypes.Product) error {
+func (x *mainSvcHandler) CreateNewParty(ctx context.Context, products []*apitypes.Product) error {
 	return nil
 }
 
-func (x mainSvcHandler) ListLogEntriesDays(ctx context.Context) (r []apitypes.TimeUnixMillis, _ error) {
+func (x *mainSvcHandler) ListLogEntriesDays(ctx context.Context) (r []apitypes.TimeUnixMillis, _ error) {
 	for _, t := range logfile.ListDays() {
 		r = append(r, timeUnixMillis(t))
 	}
@@ -142,7 +158,7 @@ func (x mainSvcHandler) ListLogEntriesDays(ctx context.Context) (r []apitypes.Ti
 
 // Parameters:
 //  - Daytime
-func (x mainSvcHandler) LogEntriesOfDay(ctx context.Context, daytime apitypes.TimeUnixMillis, filter string) (r []*apitypes.LogEntry, err error) {
+func (x *mainSvcHandler) LogEntriesOfDay(ctx context.Context, daytime apitypes.TimeUnixMillis, filter string) (r []*apitypes.LogEntry, err error) {
 
 	var xs []logfile.Entry
 	t := unixMillisToTime(daytime)

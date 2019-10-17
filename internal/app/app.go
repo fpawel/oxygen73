@@ -30,13 +30,8 @@ func Main() {
 	// соединение с базой данных
 	db := data.OpenProd()
 
-	// сервер
-	server := newServer(mainSvcHandler{
-		db: db,
-	})
-
 	// старт сервера
-	go log.ErrIfFail(server.Serve, "detail", "`failed to run main service`")
+	stopServer := runServer(db)
 
 	// старт цикла оконных сообщений окна связи с gui
 	go func() {
@@ -66,7 +61,7 @@ func Main() {
 	stopReadMeasurements()
 
 	log.Debug("остановка сервера")
-	log.ErrIfFail(server.Stop, "detail", "`failed to stop main service`")
+	stopServer()
 
 	log.Debug("закрыть соединение с базой данных")
 	log.ErrIfFail(db.Close)

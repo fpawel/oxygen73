@@ -1,6 +1,8 @@
 package gui
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"github.com/fpawel/gotools/pkg/copydata"
 	"github.com/fpawel/oxygen73/internal"
@@ -16,19 +18,34 @@ type Msg = uintptr
 const (
 	MsgWriteConsole Msg = iota
 	MsgStatus
-	MsgMeasurement
+	MsgNewMeasurements
+	MsgMeasurements
 )
 
-func WriteConsole(str string) bool {
-	return w.SendString(MsgWriteConsole, str)
-}
+//func WriteConsole(str string) bool {
+//	return w.SendString(MsgWriteConsole, str)
+//}
 
 func Status(m StatusMessage) bool {
 	return w.SendJson(MsgStatus, m)
 }
 
-func Measurement(m data.Measurement) bool {
-	return w.SendJson(MsgMeasurement, m)
+func Measurements(ms []data.Measurement) bool {
+	buf := new(bytes.Buffer)
+	writeBinary(buf, int64(len(ms)))
+	for _, m := range ms {
+		writeMeasurement(buf, m)
+	}
+	return w.SendMessage(MsgMeasurements, buf.Bytes())
+}
+
+func NewMeasurements(ms []data.Measurement) bool {
+	buf := new(bytes.Buffer)
+	writeBinary(buf, int64(len(ms)))
+	for _, m := range ms {
+		writeMeasurement(buf, m)
+	}
+	return w.SendMessage(MsgNewMeasurements, buf.Bytes())
 }
 
 func StatusOk(text string) bool {
@@ -81,3 +98,19 @@ var (
 		Dest: internal.DelphiWindowClass,
 	}
 )
+
+func writeMeasurement(buf *bytes.Buffer, m data.Measurement) {
+	writeBinary(buf, m.StoredAt.UnixNano()/1000000) // количество миллисекунд метки времени
+	writeBinary(buf, m.Temperature)
+	writeBinary(buf, m.Pressure)
+	writeBinary(buf, m.Humidity)
+	for i := 0; i < 50; i++ {
+		writeBinary(buf, m.Places[i])
+	}
+}
+
+func writeBinary(buf *bytes.Buffer, data interface{}) {
+	if err := binary.Write(buf, binary.LittleEndian, data); err != nil {
+		log.Fatal(err)
+	}
+}

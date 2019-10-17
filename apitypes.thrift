@@ -27,14 +27,6 @@ struct YearMonth{
     2: i32 month
 }
 
-struct Measurement{
-    1: TimeUnixMillis StoredAt
-    2: double temperature
-    3: double pressure
-    4: double humidity
-    5: list<double> places
-}
-
 struct LogEntry{
     1: TimeUnixMillis time
     2: string line

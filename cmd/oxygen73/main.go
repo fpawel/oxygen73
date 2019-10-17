@@ -13,7 +13,7 @@ func main() {
 
 	defaultLogLevelStr := os.Getenv("OXYGEN73_LOG_LEVEL")
 	if len(strings.TrimSpace(defaultLogLevelStr)) == 0 {
-		defaultLogLevelStr = "info"
+		defaultLogLevelStr = "debug"
 	}
 
 	logLevel := flag.String("log.level", defaultLogLevelStr, "log `level` (debug|info|warn|err)")

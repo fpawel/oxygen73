@@ -67,18 +67,19 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				}
 				copy(measurement.Places[n*10:(n+1)*10], values[:10])
 			}
-
 			measurement.StoredAt = time.Now()
-
-			gui.Measurement(measurement)
-
 			measurements = append(measurements, measurement)
-
 			if len(measurements) >= conf.Public.SaveMeasurementsCount {
-				log.ErrIfFail(func() error {
-					return data.SaveMeasurements(measurements, db)
-				})
+				saveMeasurements := measurements
 				measurements = nil
+				wg.Add(1)
+				go func() {
+					if err := data.SaveMeasurements(saveMeasurements, db); err != nil {
+						log.PrintErr("не удалось сохранить измерения", "reason", err)
+					}
+					gui.NewMeasurements(saveMeasurements)
+					wg.Done()
+				}()
 			}
 		}
 	}()
