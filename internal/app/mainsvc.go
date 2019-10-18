@@ -24,6 +24,21 @@ func (x *mainSvcHandler) Wait() {
 	x.wg.Wait()
 }
 
+func (x *mainSvcHandler) ListLastPartyProducts(ctx context.Context) ([]*apitypes.Product, error) {
+	var partyID int64
+	if err := x.db.Get(&partyID, `SELECT party_id FROM last_party`); err != nil {
+		return nil, err
+	}
+	return x.ListProducts(ctx, partyID)
+}
+func (x *mainSvcHandler) SetLastPartyProductSerialAtPlace(ctx context.Context, place int32, serial int32) (err error) {
+	_, err = x.db.Exec(`
+INSERT OR REPLACE INTO product(party_id, serial, place)
+VALUES ((SELECT party_id FROM last_party), ?, ?)
+`, serial, place, serial, place)
+	return
+}
+
 func (x *mainSvcHandler) RequestMeasurements(ctx context.Context, timeFrom apitypes.TimeUnixMillis, timeTo apitypes.TimeUnixMillis) error {
 	x.wg.Add(1)
 	go func() {
@@ -145,7 +160,14 @@ func (x *mainSvcHandler) ListProducts(ctx context.Context, partyID int64) ([]*ap
 	return ps, nil
 }
 
-func (x *mainSvcHandler) CreateNewParty(ctx context.Context, products []*apitypes.Product) error {
+func (x *mainSvcHandler) CreateNewParty(ctx context.Context) error {
+	r, err := x.db.Exec(`INSERT INTO party DEFAULT VALUES`)
+	if err != nil {
+		return err
+	}
+	if _, err := r.LastInsertId(); err != nil {
+		return err
+	}
 	return nil
 }
 
