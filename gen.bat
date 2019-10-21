@@ -1,1 +1,1 @@
-thrift -r --out ./internal/thriftgen/ --gen go:package_prefix=github.com/fpawel/oxygen73/internal/thriftgen/  mainsvc.thrift
+thrift -r --out %GOPATH%/src/github.com/fpawel/oxygen73/internal/thriftgen/ --gen go:package_prefix=github.com/fpawel/oxygen73/internal/thriftgen/  mainsvc.thrift
