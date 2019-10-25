@@ -31,3 +31,8 @@ struct LogEntry{
     1: TimeUnixMillis time
     2: string line
 }
+
+struct AppConfig{
+    1: string Comport
+    2: string ComportHumidity
+}

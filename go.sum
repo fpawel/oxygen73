@@ -1,3 +1,4 @@
+github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
 github.com/ansel1/merry v1.5.0 h1:9E6Jj5Yda9SfY3dhbOZUq1CeHl5JA1+mItYvKqokJ7s=
 github.com/ansel1/merry v1.5.0/go.mod h1:wUy/yW0JX0ix9GYvUbciq+bi3jW/vlKPlbpI7qdZpOw=
 github.com/apache/thrift v0.13.0 h1:5hryIiq9gtn+MiLVn0wP37kb/uTeRZgN08WoCsAhIhI=
@@ -38,6 +39,8 @@ github.com/lxn/win v0.0.0-20190919090605-24c5960b03d8/go.mod h1:ouWl4wViUNh8tPSI
 github.com/mattn/go-sqlite3 v1.9.0/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
 github.com/mattn/go-sqlite3 v1.11.0 h1:LDdKkqtYlom37fkvqs8rMPFKAMe8+SgjbwZ6ex1/A/Q=
 github.com/mattn/go-sqlite3 v1.11.0/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
+github.com/pelletier/go-toml v1.5.0 h1:5BakdOZdtKJ1FFk6QdL8iSGrMWsXgchNJcrnarjbmJQ=
+github.com/pelletier/go-toml v1.5.0/go.mod h1:5N711Q9dKgbdkxHL+MEfF31hpT7l0S0s/t2kKREewys=
 github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=

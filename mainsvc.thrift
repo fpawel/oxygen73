@@ -14,4 +14,10 @@ service MainSvc {
 
    list<apitypes.TimeUnixMillis> ListLogEntriesDays()
    list<apitypes.LogEntry> LogEntriesOfDay(1:apitypes.TimeUnixMillis daytime, 2:string filter)
+
+   apitypes.AppConfig getAppConfig()
+   oneway void setAppConfig(1:apitypes.AppConfig appConfig)
+
+   string getAppConfigToml()
+   oneway void setAppConfigToml(1:string appConfigToml)
 }

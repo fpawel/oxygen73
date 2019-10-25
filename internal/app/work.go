@@ -13,22 +13,24 @@ import (
 )
 
 func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
-	comPort := comport.NewPort(func() comport.Config {
-		return comport.Config{
-			Baud:        115200,
-			ReadTimeout: time.Millisecond,
-			Name:        cfg.Get().Public.ComportName,
-		}
-	})
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 
 	data.MustLastParty(db)
 
+	comPort := comport.NewPort(func() comport.Config {
+		return comport.Config{
+			Baud:        115200,
+			ReadTimeout: time.Millisecond,
+			Name:        cfg.Get().Main.Comport,
+		}
+	})
+
 	go func() {
 		defer wg.Done()
-
 		var measurements data.Measurements
+		comportName := cfg.Get().Main.Comport
 	workerLoop:
 		for {
 
@@ -36,9 +38,13 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				log.Info("close worker because of context: " + ctx.Err().Error())
 				return
 			}
+			c := cfg.Get()
+			if c.Main.Comport != comportName {
+				log.ErrIfFail(comPort.Close)
+				comportName = c.Main.Comport
+			}
 
-			conf := cfg.Get()
-			reader := comPort.NewResponseReader(ctx, conf.Public.Comm)
+			reader := comPort.NewResponseReader(ctx, c.Main.Comm)
 			var measurement data.Measurement
 			for n := 0; n < 5; n++ {
 				valuesCount := 10
@@ -55,7 +61,7 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 
 				if err != nil {
 					gui.StatusErr(err)
-					pause(ctx.Done(), conf.Public.Comm.ReadTimeout())
+					pause(ctx.Done(), c.Main.Comm.ReadTimeout())
 					continue workerLoop
 				}
 
@@ -69,7 +75,7 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 			}
 			measurement.StoredAt = time.Now()
 			measurements = append(measurements, measurement)
-			if len(measurements) >= conf.Public.SaveMeasurementsCount {
+			if len(measurements) >= c.SaveMeasurementsCount {
 				saveMeasurements := measurements
 				measurements = nil
 				wg.Add(1)

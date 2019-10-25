@@ -6,7 +6,7 @@ import (
 	"github.com/fpawel/oxygen73/internal/pkg"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
-	"io"
+	"github.com/pelletier/go-toml"
 	"io/ioutil"
 	"os"
 	"syscall"
@@ -36,17 +36,17 @@ func PanicIf(err error) {
 }
 
 // Close is a wrapper for os.File.Close, …
-func Close(f io.Closer) {
-	err := f.Close()
-	AbortIf(err)
-}
+//func Close(f io.Closer) {
+//	err := f.Close()
+//	AbortIf(err)
+//}
 
 // Create is a wrapper for os.Create.
-func Create(name string) *os.File {
-	f, err := os.Create(name)
-	AbortIf(err)
-	return f
-}
+//func Create(name string) *os.File {
+//	f, err := os.Create(name)
+//	AbortIf(err)
+//	return f
+//}
 
 // Decoder is an interface compatible with json.Decoder, gob.Decoder,
 // xml.Decoder, …
@@ -67,17 +67,30 @@ func MarshalJSON(v interface{}) []byte {
 	return data
 }
 
-func MarshalIndentJSON(v interface{}, prefix, indent string) []byte {
-	data, err := json.MarshalIndent(v, prefix, indent)
-	AbortIf(err)
-	return data
-}
+//func MarshalIndentJSON(v interface{}, prefix, indent string) []byte {
+//	data, err := json.MarshalIndent(v, prefix, indent)
+//	AbortIf(err)
+//	return data
+//}
 
 // UnmarshalJSON is a wrapper for json.Unmarshal.
 func UnmarshalJSON(data []byte, v interface{}) {
 	err := json.Unmarshal(data, v)
 	AbortIf(err)
 }
+
+// MarshalToml is a wrapper for toml.Marshal.
+func MarshalToml(v interface{}) []byte {
+	data, err := toml.Marshal(v)
+	AbortIf(err)
+	return data
+}
+
+// UnmarshalToml is a wrapper for toml.Unmarshal.
+//func UnmarshalToml(data []byte, v interface{}) {
+//	err := toml.Unmarshal(data, v)
+//	AbortIf(err)
+//}
 
 // WriteFile is a wrapper for ioutil.WriteFile.
 func WriteFile(name string, buf []byte, perm os.FileMode) {
@@ -93,9 +106,9 @@ func UTF16PtrFromString(s string) *uint16 {
 	return p
 }
 
-func EnsureDir(dir string) {
-	AbortIf(pkg.EnsureDir(dir))
-}
+//func EnsureDir(dir string) {
+//	AbortIf(pkg.EnsureDir(dir))
+//}
 
 func OpenSqliteDBx(fileName string) *sqlx.DB {
 	return sqlx.NewDb(OpenSqliteDB(fileName), "sqlite3")

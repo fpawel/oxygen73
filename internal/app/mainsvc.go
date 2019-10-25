@@ -3,8 +3,10 @@ package app
 import (
 	"context"
 	"github.com/fpawel/gotools/pkg/logfile"
+	"github.com/fpawel/oxygen73/internal/cfg"
 	"github.com/fpawel/oxygen73/internal/data"
 	"github.com/fpawel/oxygen73/internal/gui"
+	"github.com/fpawel/oxygen73/internal/pkg/must"
 	"github.com/fpawel/oxygen73/internal/thriftgen/apitypes"
 	"github.com/fpawel/oxygen73/internal/thriftgen/mainsvc"
 	"github.com/jmoiron/sqlx"
@@ -22,6 +24,30 @@ var _ mainsvc.MainSvc = new(mainSvcHandler)
 
 func (x *mainSvcHandler) Wait() {
 	x.wg.Wait()
+}
+
+func (x *mainSvcHandler) GetAppConfigToml(ctx context.Context) (string, error) {
+	return string(must.MarshalToml(cfg.Get())), nil
+}
+
+func (x *mainSvcHandler) SetAppConfigToml(ctx context.Context, appConfigToml string) error {
+	return cfg.SetToml(appConfigToml)
+}
+
+func (x *mainSvcHandler) GetAppConfig(ctx context.Context) (*apitypes.AppConfig, error) {
+	c := cfg.Get()
+	return &apitypes.AppConfig{
+		Comport:         c.Main.Comport,
+		ComportHumidity: c.Hum.Comport,
+	}, nil
+}
+
+func (x *mainSvcHandler) SetAppConfig(ctx context.Context, appConfig *apitypes.AppConfig) error {
+	c := cfg.Get()
+	c.Main.Comport = appConfig.Comport
+	c.Hum.Comport = appConfig.ComportHumidity
+	cfg.Set(c)
+	return nil
 }
 
 func (x *mainSvcHandler) ListLastPartyProducts(ctx context.Context) ([]*apitypes.Product, error) {
@@ -178,8 +204,6 @@ func (x *mainSvcHandler) ListLogEntriesDays(ctx context.Context) (r []apitypes.T
 	return
 }
 
-// Parameters:
-//  - Daytime
 func (x *mainSvcHandler) LogEntriesOfDay(ctx context.Context, daytime apitypes.TimeUnixMillis, filter string) (r []*apitypes.LogEntry, err error) {
 
 	var xs []logfile.Entry

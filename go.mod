@@ -9,6 +9,7 @@ require (
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/lxn/win v0.0.0-20190919090605-24c5960b03d8
 	github.com/mattn/go-sqlite3 v1.11.0
+	github.com/pelletier/go-toml v1.5.0
 	github.com/powerman/structlog v0.5.0
 	golang.org/x/sys v0.0.0-20191020212454-3e7259c5e7c2
 )
