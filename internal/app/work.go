@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"encoding/binary"
+	"github.com/ansel1/merry"
 	"github.com/fpawel/comm/comport"
 	"github.com/fpawel/comm/modbus"
 	"github.com/fpawel/oxygen73/internal/cfg"
@@ -27,10 +29,26 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 		}
 	})
 
+	comPortHum := comport.NewPort(func() comport.Config {
+		return comport.Config{
+			Baud:        9600,
+			ReadTimeout: time.Millisecond,
+			Name:        cfg.Get().Hum.Comport,
+		}
+	})
+
 	go func() {
 		defer wg.Done()
-		var measurements data.Measurements
-		comportName := cfg.Get().Main.Comport
+		var (
+			measurements                data.Measurements
+			comportName, comportHumName string
+		)
+		{
+			c := cfg.Get()
+			comportName = c.Main.Comport
+			comportHumName = c.Hum.Comport
+		}
+
 	workerLoop:
 		for {
 
@@ -43,9 +61,30 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				log.ErrIfFail(comPort.Close)
 				comportName = c.Main.Comport
 			}
+			if c.Hum.Comport != comportHumName {
+				log.ErrIfFail(comPortHum.Close)
+				comportName = c.Hum.Comport
+			}
 
 			reader := comPort.NewResponseReader(ctx, c.Main.Comm)
-			var measurement data.Measurement
+			readerHum := comPortHum.NewResponseReader(ctx, c.Hum.Comm)
+			var (
+				measurement data.Measurement
+				wgHum       sync.WaitGroup
+			)
+			wgHum.Add(1)
+			go func() {
+				defer wgHum.Done()
+				v, err := modbus.Read3UInt16(log, readerHum, 16, 0x0103, binary.BigEndian)
+				if err == nil {
+					gui.StatusComportHumOk(comportHumName + ": датчик влажности: связь установлена")
+					measurement.Humidity = float64(v) / 100.
+				} else {
+					err = merry.Append(err, comportHumName).Append("датчик влажности")
+					gui.StatusComportHumErr(err)
+				}
+			}()
+
 			for n := 0; n < 5; n++ {
 				valuesCount := 10
 				if n == 0 {
@@ -60,12 +99,13 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				}
 
 				if err != nil {
-					gui.StatusErr(err)
+					err = merry.Append(err, comportName).Append("стенд")
+					gui.StatusComportErr(err)
 					pause(ctx.Done(), c.Main.Comm.ReadTimeout())
 					continue workerLoop
 				}
 
-				gui.StatusOk("связь установлена")
+				gui.StatusComportOk("стенд: " + comportName + ": связь установлена")
 
 				if n == 0 {
 					measurement.Temperature = values[10]
@@ -73,7 +113,10 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				}
 				copy(measurement.Places[n*10:(n+1)*10], values[:10])
 			}
+
+			wgHum.Wait()
 			measurement.StoredAt = time.Now()
+
 			measurements = append(measurements, measurement)
 			if len(measurements) >= c.SaveMeasurementsCount {
 				saveMeasurements := measurements

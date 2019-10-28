@@ -10,14 +10,14 @@ import (
 	"github.com/fpawel/oxygen73/internal/pkg/winapi"
 	"github.com/lxn/win"
 	"github.com/powerman/structlog"
-	"strings"
 )
 
 type Msg = uintptr
 
 const (
 	MsgWriteConsole Msg = iota
-	MsgStatus
+	MsgStatusComport
+	MsgStatusComportHum
 	MsgNewMeasurements
 	MsgMeasurements
 )
@@ -26,8 +26,11 @@ const (
 //	return w.SendString(MsgWriteConsole, str)
 //}
 
-func Status(m StatusMessage) bool {
-	return w.SendJson(MsgStatus, m)
+func statusComport(m StatusMessage) bool {
+	return w.SendJson(MsgStatusComport, m)
+}
+func statusComportHum(m StatusMessage) bool {
+	return w.SendJson(MsgStatusComportHum, m)
 }
 
 func Measurements(ms []data.Measurement) bool {
@@ -48,28 +51,25 @@ func NewMeasurements(ms []data.Measurement) bool {
 	return w.SendMessage(MsgNewMeasurements, buf.Bytes())
 }
 
-func StatusOk(text string) bool {
-	return Status(StatusMessage{Ok: true, Text: text})
+func StatusComportOk(text string) bool {
+	return statusComport(StatusMessage{Ok: true, Text: text})
 }
 
-func StatusErr(err error) bool {
-	return Status(StatusMessage{Ok: false, Text: cutErrStr(err), Detail: err.Error()})
+func StatusComportErr(err error) bool {
+	return statusComport(StatusMessage{Ok: false, Text: err.Error()})
+}
+
+func StatusComportHumOk(text string) bool {
+	return statusComportHum(StatusMessage{Ok: true, Text: text})
+}
+
+func StatusComportHumErr(err error) bool {
+	return statusComportHum(StatusMessage{Ok: false, Text: err.Error()})
 }
 
 type StatusMessage struct {
-	Ok           bool
-	Text, Detail string
-}
-
-func cutErrStr(err error) string {
-	if err == nil {
-		return ""
-	}
-	s := err.Error()
-	if strings.Contains(s, ":") {
-		return strings.Split(s, ":")[0]
-	}
-	return s
+	Ok   bool
+	Text string
 }
 
 // Handle выполняет бесконечный цикл с обработкой оконных сообщений.
