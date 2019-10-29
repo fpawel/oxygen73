@@ -24,7 +24,6 @@ func runServer(db *sqlx.DB) func() {
 
 	return func() {
 		log.ErrIfFail(server.Stop, "problem", "`failed to stop server`")
-		handler.Wait()
 	}
 }
 

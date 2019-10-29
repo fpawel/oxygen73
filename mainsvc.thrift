@@ -10,7 +10,8 @@ service MainSvc {
    oneway void createNewParty()
 
    list<apitypes.Product> listLastPartyProducts()
-   oneway void setLastPartyProductSerialAtPlace(1:i32 place, 2:i32 serial)
+   void setProductSerialAtPlace(1:i32 place, 2:i32 serial)
+   void deleteProductAtPlace(1:i32 place)
 
    list<apitypes.TimeUnixMillis> ListLogEntriesDays()
    list<apitypes.LogEntry> LogEntriesOfDay(1:apitypes.TimeUnixMillis daytime, 2:string filter)

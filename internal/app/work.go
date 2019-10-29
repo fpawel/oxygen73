@@ -19,7 +19,9 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 	var wg sync.WaitGroup
 	wg.Add(1)
 
-	data.MustLastParty(db)
+	if _, err := data.LastParty(ctx, db); err != nil {
+		panic(err)
+	}
 
 	comPort := comport.NewPort(func() comport.Config {
 		return comport.Config{

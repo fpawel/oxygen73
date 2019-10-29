@@ -11,20 +11,14 @@ import (
 	"github.com/fpawel/oxygen73/internal/thriftgen/mainsvc"
 	"github.com/jmoiron/sqlx"
 	"math"
-	"sync"
 	"time"
 )
 
 type mainSvcHandler struct {
 	db *sqlx.DB
-	wg sync.WaitGroup
 }
 
 var _ mainsvc.MainSvc = new(mainSvcHandler)
-
-func (x *mainSvcHandler) Wait() {
-	x.wg.Wait()
-}
 
 func (x *mainSvcHandler) GetAppConfigToml(ctx context.Context) (string, error) {
 	return string(must.MarshalToml(cfg.Get())), nil
@@ -52,25 +46,29 @@ func (x *mainSvcHandler) SetAppConfig(ctx context.Context, appConfig *apitypes.A
 
 func (x *mainSvcHandler) ListLastPartyProducts(ctx context.Context) ([]*apitypes.Product, error) {
 	var partyID int64
-	if err := x.db.Get(&partyID, `SELECT party_id FROM last_party`); err != nil {
+	if err := x.db.GetContext(ctx, &partyID, `SELECT party_id FROM last_party`); err != nil {
 		return nil, err
 	}
 	return x.ListProducts(ctx, partyID)
 }
-func (x *mainSvcHandler) SetLastPartyProductSerialAtPlace(ctx context.Context, place int32, serial int32) (err error) {
-	_, err = x.db.Exec(`
+func (x *mainSvcHandler) SetProductSerialAtPlace(ctx context.Context, place int32, serial int32) (err error) {
+	_, err = x.db.ExecContext(ctx, `
 INSERT OR REPLACE INTO product(party_id, serial, place)
 VALUES ((SELECT party_id FROM last_party), ?, ?)
-`, serial, place, serial, place)
+`, serial, place)
+	return
+}
+
+func (x *mainSvcHandler) DeleteProductAtPlace(ctx context.Context, place int32) (err error) {
+	_, err = x.db.ExecContext(ctx, `
+DELETE FROM product WHERE party_id=(SELECT party_id FROM last_party) AND place=?`, place)
 	return
 }
 
 func (x *mainSvcHandler) RequestMeasurements(ctx context.Context, timeFrom apitypes.TimeUnixMillis, timeTo apitypes.TimeUnixMillis) error {
-	x.wg.Add(1)
 	go func() {
-		defer x.wg.Done()
 		var xs []measurement
-		err := x.db.Select(&xs, `
+		err := x.db.SelectContext(ctx, &xs, `
 SELECT stored_at, 
        temperature, pressure, humidity,
        place0, place1, place2, place3, place4, place5, place6, place7, place8, place9,
@@ -108,12 +106,11 @@ FROM measurement1 WHERE tm BETWEEN julianday(?) AND julianday(?)`,
 		gui.Measurements(ms)
 	}()
 	return nil
-
 }
 
 func (x *mainSvcHandler) ListYearMonths(ctx context.Context) ([]*apitypes.YearMonth, error) {
 	var xs []*apitypes.YearMonth
-	if err := x.db.Select(&xs, `
+	if err := x.db.SelectContext(ctx, &xs, `
 SELECT DISTINCT year,  month
 FROM measurement1 
 ORDER BY year DESC, month DESC`); err != nil {
@@ -130,7 +127,7 @@ ORDER BY year DESC, month DESC`); err != nil {
 }
 
 func (x *mainSvcHandler) GetParty(ctx context.Context, partyID int64) (*apitypes.Party, error) {
-	p, err := data.GetParty(x.db, partyID)
+	p, err := data.GetParty(ctx, x.db, partyID)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +167,7 @@ WHERE year = ?
 }
 
 func (x *mainSvcHandler) ListProducts(ctx context.Context, partyID int64) ([]*apitypes.Product, error) {
-	xs, err := data.ListProducts(x.db, partyID)
+	xs, err := data.ListProducts(ctx, x.db, partyID)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +184,7 @@ func (x *mainSvcHandler) ListProducts(ctx context.Context, partyID int64) ([]*ap
 }
 
 func (x *mainSvcHandler) CreateNewParty(ctx context.Context) error {
-	r, err := x.db.Exec(`INSERT INTO party DEFAULT VALUES`)
+	r, err := x.db.ExecContext(ctx, `INSERT INTO party DEFAULT VALUES`)
 	if err != nil {
 		return err
 	}
