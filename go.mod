@@ -12,5 +12,5 @@ require (
 	github.com/mattn/go-sqlite3 v1.11.0
 	github.com/pelletier/go-toml v1.6.0
 	github.com/powerman/structlog v0.5.0
-	golang.org/x/sys v0.0.0-20191027211539-f8518d3b3627
+	golang.org/x/sys v0.0.0-20191028164358-195ce5e7f934
 )
