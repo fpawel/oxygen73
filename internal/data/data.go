@@ -13,10 +13,11 @@ import (
 //go:generate go run github.com/fpawel/gotools/cmd/sqlstr/...
 
 type Product struct {
-	Place     int32 `db:"place"`
-	ProductID int64 `db:"product_id"`
-	PartyID   int64 `db:"party_id"`
-	Serial    int32 `db:"serial"`
+	Place          int32     `db:"place"`
+	ProductID      int64     `db:"product_id"`
+	PartyID        int64     `db:"party_id"`
+	Serial         int32     `db:"serial"`
+	PartyCreatedAt time.Time `db:"created_at"`
 }
 
 type Party struct {
@@ -25,11 +26,11 @@ type Party struct {
 }
 
 func OpenDev() *sqlx.DB {
-	return Open(filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "fpawel", "oxygen73", "build", "series.sqlite"))
+	return Open(filepath.Join(os.Getenv("GOPATH"), "src", "github.com", "fpawel", "oxygen73", "build", "oxygen73.sqlite"))
 }
 
 func OpenProd() *sqlx.DB {
-	return Open(filepath.Join(filepath.Dir(os.Args[0]), "series.sqlite"))
+	return Open(filepath.Join(filepath.Dir(os.Args[0]), "oxygen73.sqlite"))
 }
 
 func Open(filename string) *sqlx.DB {
@@ -56,15 +57,12 @@ func ListProducts(ctx context.Context, db *sqlx.DB, partyID int64) ([]Product, e
 		ps  []Product
 		err error
 	)
-	if partyID < 0 {
-		err = db.SelectContext(ctx, &ps, `
-SELECT * 
+	err = db.SelectContext(ctx, &ps, `
+SELECT place, product.product_id, product.party_id, serial, created_at   
 FROM  product 
-WHERE party_id = (SELECT party_id FROM last_party) 
-ORDER BY place`)
-	} else {
-		err = db.SelectContext(ctx, &ps, ` SELECT * FROM  product WHERE party_id = ? ORDER BY place`, partyID)
-	}
+INNER JOIN party USING (party_id)
+WHERE party_id = ? 
+ORDER BY place`, partyID)
 	if err != nil {
 		return nil, err
 	}

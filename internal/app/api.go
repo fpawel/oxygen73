@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"github.com/fpawel/gotools/pkg/logfile"
 	"github.com/fpawel/oxygen73/internal/cfg"
 	"github.com/fpawel/oxygen73/internal/data"
@@ -63,6 +64,50 @@ func (x *mainSvcHandler) DeleteProductAtPlace(ctx context.Context, place int32) 
 	_, err = x.db.ExecContext(ctx, `
 DELETE FROM product WHERE party_id=(SELECT party_id FROM last_party) AND place=?`, place)
 	return
+}
+
+func (x *mainSvcHandler) RequestProductMeasurements(ctx context.Context, bucketID int64, place int32) error {
+	go func() {
+		var xs []struct {
+			StoredAt    string   `db:"stored_at"`
+			Temperature *float64 `db:"temperature"`
+			Pressure    *float64 `db:"pressure"`
+			Humidity    *float64 `db:"humidity"`
+			Value       float64  `db:"value"`
+		}
+
+		sqlStr := fmt.Sprintf(`
+SELECT stored_at, 
+       temperature, pressure, humidity, place%d AS value
+FROM measurement1 
+WHERE tm BETWEEN julianday((SELECT created_at FROM bucket WHERE bucket_id=?)) AND julianday((SELECT updated_at FROM bucket WHERE bucket_id=?))
+	AND place%d NOT NULL`, place, place)
+
+		err := x.db.SelectContext(ctx, &xs, sqlStr, bucketID, bucketID)
+		if err != nil {
+			log.PrintErr("select measurements fail",
+				"reason", err,
+				"bucketID", bucketID,
+				"place", place)
+			gui.ErrorOccurred(err)
+			return
+		}
+
+		ms := make([]data.Measurement1, len(xs))
+		f := floatOrNan
+		for i, x := range xs {
+			t := parseTime(x.StoredAt)
+			ms[i] = data.Measurement1{
+				StoredAt:    t,
+				Temperature: f(x.Temperature),
+				Pressure:    f(x.Pressure),
+				Humidity:    f(x.Humidity),
+				Value:       x.Value,
+			}
+		}
+		gui.ProductMeasurements(ms)
+	}()
+	return nil
 }
 
 func (x *mainSvcHandler) RequestMeasurements(ctx context.Context, timeFrom apitypes.TimeUnixMillis, timeTo apitypes.TimeUnixMillis) error {
@@ -174,10 +219,11 @@ func (x *mainSvcHandler) ListProducts(ctx context.Context, partyID int64) ([]*ap
 	ps := make([]*apitypes.Product, len(xs))
 	for i, p := range xs {
 		ps[i] = &apitypes.Product{
-			Place:     p.Place,
-			ProductID: p.ProductID,
-			PartyID:   p.PartyID,
-			Serial:    p.Serial,
+			Place:          p.Place,
+			ProductID:      p.ProductID,
+			PartyID:        p.PartyID,
+			Serial:         p.Serial,
+			PartyCreatedAt: timeUnixMillis(p.PartyCreatedAt),
 		}
 	}
 	return ps, nil
@@ -218,6 +264,45 @@ func (x *mainSvcHandler) LogEntriesOfDay(ctx context.Context, daytime apitypes.T
 		})
 	}
 	return
+}
+
+func (x *mainSvcHandler) FindProductsBySerial(ctx context.Context, serial int32) ([]*apitypes.ProductBucket, error) {
+	var xs []struct {
+		Place           int32     `db:"place"`
+		ProductID       int64     `db:"product_id"`
+		PartyID         int64     `db:"party_id"`
+		BucketID        int64     `db:"bucket_id"`
+		Serial          int32     `db:"serial"`
+		PartyCreatedAt  time.Time `db:"party_created_at"`
+		BucketCreatedAt time.Time `db:"bucket_created_at"`
+		BucketUpdatedAt time.Time `db:"bucket_updated_at"`
+	}
+	err := x.db.SelectContext(ctx, &xs, `
+SELECT place, product.product_id, product.party_id, serial, party.created_at AS party_created_at,
+       bucket_id, bucket.created_at AS bucket_created_at, bucket.updated_at AS bucket_updated_at
+FROM  product 
+INNER JOIN party USING (party_id)
+INNER JOIN bucket USING (party_id)
+WHERE serial = ? 
+ORDER BY bucket.created_at DESC `, serial)
+	if err != nil {
+		return nil, err
+	}
+	r := make([]*apitypes.ProductBucket, 0)
+	for _, p := range xs {
+
+		r = append(r, &apitypes.ProductBucket{
+			Place:           p.Place,
+			ProductID:       p.ProductID,
+			PartyID:         p.PartyID,
+			Serial:          p.Serial,
+			PartyCreatedAt:  timeUnixMillis(p.PartyCreatedAt),
+			BucketID:        p.BucketID,
+			BucketCreatedAt: timeUnixMillis(p.BucketCreatedAt),
+			BucketUpdatedAt: timeUnixMillis(p.BucketUpdatedAt),
+		})
+	}
+	return r, nil
 }
 
 const timeLayout = "2006-01-02 15:04:05.000"

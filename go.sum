@@ -13,6 +13,16 @@ github.com/fpawel/comm v0.0.0-20191028130316-be6b1061d808 h1:lhmwu+sZdoYaPzvsylj
 github.com/fpawel/comm v0.0.0-20191028130316-be6b1061d808/go.mod h1:W3sS3oaaitd4wtvr7Iise6lLEBfDEpRAu+GcvPmp/h4=
 github.com/fpawel/gotools v0.0.0-20191021181518-e44cd9665770 h1:XoUSCU0OV1V0c3iBUQ39/iN6mBp7e8dSp6BsHzCzgt8=
 github.com/fpawel/gotools v0.0.0-20191021181518-e44cd9665770/go.mod h1:2sZwXlV+tJpLskgyq89dUp35uGHbU74yFO2diqI3Fk8=
+github.com/fpawel/gotools v0.0.0-20191030123134-1e7db27ee2e8 h1:Cou4fDH2qmz/peXue03hXIENqkbdlhS80P4gPvOE4qw=
+github.com/fpawel/gotools v0.0.0-20191030123134-1e7db27ee2e8/go.mod h1:2sZwXlV+tJpLskgyq89dUp35uGHbU74yFO2diqI3Fk8=
+github.com/fpawel/gotools v0.0.0-20191030123942-156944b06334 h1:3B2LG7mglLF1LzVMyzUq92qeV64a7TITwmxPL2xKxM0=
+github.com/fpawel/gotools v0.0.0-20191030123942-156944b06334/go.mod h1:2sZwXlV+tJpLskgyq89dUp35uGHbU74yFO2diqI3Fk8=
+github.com/fpawel/gotools v0.0.0-20191030124259-bdbd177a6dad h1:yXX7DW/5tQGJ/wt6ApN0shPOBfX5D+sZJnDjN2h1VRM=
+github.com/fpawel/gotools v0.0.0-20191030124259-bdbd177a6dad/go.mod h1:2sZwXlV+tJpLskgyq89dUp35uGHbU74yFO2diqI3Fk8=
+github.com/fpawel/gotools v0.0.0-20191030124509-5a7af0fe5d02 h1:DCwguKoNce/U0EsFoigTlxP2I4XTy0zR1jDsLZUOft4=
+github.com/fpawel/gotools v0.0.0-20191030124509-5a7af0fe5d02/go.mod h1:2sZwXlV+tJpLskgyq89dUp35uGHbU74yFO2diqI3Fk8=
+github.com/fpawel/gotools v0.0.0-20191030125146-1d6c7465834c h1:F+7sEloAAWx4vFTvvs025jJbbiAiHE5GwuaGR7f2Htk=
+github.com/fpawel/gotools v0.0.0-20191030125146-1d6c7465834c/go.mod h1:2sZwXlV+tJpLskgyq89dUp35uGHbU74yFO2diqI3Fk8=
 github.com/go-sql-driver/mysql v1.4.0/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=
 github.com/go-sql-driver/mysql v1.4.1 h1:g24URVg0OFbNUTx9qqY1IRZ9D9z3iPyi5zKhQZpNwpA=
 github.com/go-sql-driver/mysql v1.4.1/go.mod h1:zAC/RDZ24gD3HViQzih4MyKcchzm+sOG5ZlKdlhCg5w=

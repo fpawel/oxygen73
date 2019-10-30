@@ -20,6 +20,8 @@ const (
 	MsgStatusComportHum
 	MsgNewMeasurements
 	MsgMeasurements
+	MsgProductMeasurements
+	MsgErrorOccurred
 )
 
 //func WriteConsole(str string) bool {
@@ -40,6 +42,23 @@ func Measurements(ms []data.Measurement) bool {
 		writeMeasurement(buf, m)
 	}
 	return w.SendMessage(MsgMeasurements, buf.Bytes())
+}
+
+func ErrorOccurred(err error) bool {
+	return w.SendString(MsgErrorOccurred, err.Error())
+}
+
+func ProductMeasurements(ms []data.Measurement1) bool {
+	buf := new(bytes.Buffer)
+	writeBinary(buf, int64(len(ms)))
+	for _, m := range ms {
+		writeBinary(buf, m.StoredAt.UnixNano()/1000000) // количество миллисекунд метки времени
+		writeBinary(buf, m.Temperature)
+		writeBinary(buf, m.Pressure)
+		writeBinary(buf, m.Humidity)
+		writeBinary(buf, m.Value)
+	}
+	return w.SendMessage(MsgProductMeasurements, buf.Bytes())
 }
 
 func NewMeasurements(ms []data.Measurement) bool {

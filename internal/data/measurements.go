@@ -19,6 +19,14 @@ type Measurement struct {
 	StoredAt time.Time
 }
 
+type Measurement1 struct {
+	Temperature,
+	Pressure,
+	Humidity,
+	Value float64
+	StoredAt time.Time
+}
+
 func SaveMeasurements(measurements Measurements, db *sqlx.DB) error {
 	var xs []string
 	for _, m := range measurements {

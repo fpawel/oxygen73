@@ -7,10 +7,11 @@ import (
 	"github.com/fpawel/oxygen73/internal/data"
 	"github.com/fpawel/oxygen73/internal/gui"
 	"github.com/fpawel/oxygen73/internal/pkg/winapi"
-	"github.com/lxn/win"
 	"github.com/powerman/structlog"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"syscall"
 )
@@ -43,16 +44,18 @@ func Main() {
 	// старт горутины, считывающей измерения
 	stopReadMeasurements := runReadMeasurements(ctx, db)
 
-	// старт ожидания сигнала прерывания ОС
-	go func() {
+	if len(os.Getenv("OXYGEN73_DEV_MODE")) != 0 {
+		log.Debug("waiting system signal because of OXYGEN73_DEV_MODE=" + os.Getenv("OXYGEN73_DEV_MODE"))
 		done := make(chan os.Signal, 1)
 		signal.Notify(done, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
-		<-done
-		log.Info("приложение закрыто сигналом ОС: прервать все фоновые горутины")
-		interrupt()
-	}()
-
-	<-ctx.Done()
+		sig := <-done
+		log.Debug("system signal: " + sig.String())
+	} else {
+		cmd := exec.Command(filepath.Join(filepath.Dir(os.Args[0]), "oxygen73gui.exe"))
+		log.ErrIfFail(cmd.Start)
+		log.ErrIfFail(cmd.Wait)
+		log.Debug("gui was closed.")
+	}
 
 	log.Debug("прервать все фоновые горутины")
 	interrupt()
@@ -65,9 +68,6 @@ func Main() {
 
 	log.Debug("закрыть соединение с базой данных")
 	log.ErrIfFail(db.Close)
-
-	log.Debug("закрыть окно gui")
-	win.SendMessage(winapi.FindWindowClass(internal.WindowClass), win.WM_CLOSE, 0, 0)
 
 	// записать в лог что всё хорошо
 	log.Debug("all canceled and closed")

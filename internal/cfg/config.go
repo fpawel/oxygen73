@@ -13,14 +13,26 @@ import (
 
 type Config struct {
 	Main                  Hardware `toml:"main" comment:"параметры стенда"`
-	Hum                   Hardware `toml:"hum" comment:"параметры дадчика влажности"`
+	Hum                   Hardware `toml:"hum" comment:"параметры датчика влажности"`
 	LogComport            bool     `toml:"log_comport" comment:"логгирование посылок COM порта"`
 	SaveMeasurementsCount int      `toml:"save_measurements_count" comment:"количество сохраняемых измерений"`
 }
 
 type Hardware struct {
-	Comm    comm.Config `toml:"comm" comment:"параметры приёмопередачи прибора"`
-	Comport string      `toml:"comport" comment:"имя СОМ порта проибора"`
+	Comport               string `toml:"comport" comment:"имя СОМ порта проибора"`
+	ReadTimeoutMillis     int    `toml:"read_timeout" comment:"таймаут получения ответа, мс"`
+	ReadByteTimeoutMillis int    `toml:"read_byte_timeout" comment:"таймаут окончания ответа, мс"`
+	MaxAttemptsRead       int    `toml:"max_attempts_read" comment:"число попыток получения ответа"`
+	PauseMillis           int    `toml:"pause" comment:"пауза перед опросом, мс"`
+}
+
+func (x Hardware) Comm() comm.Config {
+	return comm.Config{
+		ReadTimeoutMillis:     x.ReadTimeoutMillis,
+		ReadByteTimeoutMillis: x.ReadByteTimeoutMillis,
+		MaxAttemptsRead:       x.MaxAttemptsRead,
+		PauseMillis:           x.PauseMillis,
+	}
 }
 
 func Open(log *structlog.Logger) {
@@ -81,20 +93,16 @@ var (
 		SaveMeasurementsCount: 20,
 		LogComport:            false,
 		Main: Hardware{
-			Comm: comm.Config{
-				ReadByteTimeoutMillis: 50,
-				ReadTimeoutMillis:     700,
-				MaxAttemptsRead:       3,
-			},
-			Comport: "COM1",
+			ReadByteTimeoutMillis: 50,
+			ReadTimeoutMillis:     700,
+			MaxAttemptsRead:       3,
+			Comport:               "COM1",
 		},
 		Hum: Hardware{
-			Comm: comm.Config{
-				ReadByteTimeoutMillis: 50,
-				ReadTimeoutMillis:     700,
-				MaxAttemptsRead:       3,
-			},
-			Comport: "COM2",
+			ReadByteTimeoutMillis: 50,
+			ReadTimeoutMillis:     700,
+			MaxAttemptsRead:       3,
+			Comport:               "COM2",
 		},
 	}
 )

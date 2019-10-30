@@ -68,8 +68,8 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				comportName = c.Hum.Comport
 			}
 
-			reader := comPort.NewResponseReader(ctx, c.Main.Comm)
-			readerHum := comPortHum.NewResponseReader(ctx, c.Hum.Comm)
+			reader := comPort.NewResponseReader(ctx, c.Main.Comm())
+			readerHum := comPortHum.NewResponseReader(ctx, c.Hum.Comm())
 			var (
 				measurement data.Measurement
 				wgHum       sync.WaitGroup
@@ -78,42 +78,29 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 			go func() {
 				defer wgHum.Done()
 				v, err := modbus.Read3UInt16(log, readerHum, 16, 0x0103, binary.BigEndian)
-				if err == nil {
-					gui.StatusComportHumOk(comportHumName + ": датчик влажности: связь установлена")
-					measurement.Humidity = float64(v) / 100.
-				} else {
+				if err != nil {
 					err = merry.Append(err, comportHumName).Append("датчик влажности")
 					gui.StatusComportHumErr(err)
+					return
 				}
+				gui.StatusComportHumOk(comportHumName + ": датчик влажности: связь установлена")
+				measurement.Humidity = float64(v) / 100.
 			}()
 
 			for n := 0; n < 5; n++ {
-				valuesCount := 10
-				if n == 0 {
-					valuesCount = 12
+				err := readBlock(n, reader, &measurement)
+				if err == nil {
+					gui.StatusComportOk(comportName + ": стенд: связь установлена")
+					continue
 				}
-				// получить значения напряжений 50 каналов, температуры и давления
-				values, err := modbus.Read3BCDs(log, reader, 101+modbus.Addr(n), 0, valuesCount)
-
 				if ctx.Err() != nil {
 					log.Info("close worker because of context: " + ctx.Err().Error())
 					return
 				}
-
-				if err != nil {
-					err = merry.Append(err, comportName).Append("стенд")
-					gui.StatusComportErr(err)
-					pause(ctx.Done(), c.Main.Comm.ReadTimeout())
-					continue workerLoop
-				}
-
-				gui.StatusComportOk("стенд: " + comportName + ": связь установлена")
-
-				if n == 0 {
-					measurement.Temperature = values[10]
-					measurement.Pressure = values[11]
-				}
-				copy(measurement.Places[n*10:(n+1)*10], values[:10])
+				err = merry.Append(err, comportName).Append("стенд")
+				gui.StatusComportErr(err)
+				pause(ctx.Done(), c.Main.Comm().ReadTimeout())
+				continue workerLoop
 			}
 
 			wgHum.Wait()
@@ -139,4 +126,22 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 		wg.Wait()
 		log.ErrIfFail(comPort.Close)
 	}
+}
+
+func readBlock(n int, reader modbus.ResponseReader, me *data.Measurement) error {
+	valuesCount := 10
+	if n == 0 {
+		valuesCount = 12
+	}
+	// получить значения напряжений 50 каналов, температуры и давления
+	values, err := modbus.Read3BCDs(log, reader, 101+modbus.Addr(n), 0, valuesCount)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		me.Temperature = values[10]
+		me.Pressure = values[11]
+	}
+	copy(me.Places[n*10:(n+1)*10], values[:10])
+	return nil
 }
