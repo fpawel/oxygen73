@@ -2,11 +2,10 @@ package must
 
 import (
 	"database/sql"
-	"encoding/json"
 	"github.com/fpawel/oxygen73/internal/pkg"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/pelletier/go-toml"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"syscall"
@@ -35,19 +34,6 @@ func PanicIf(err error) {
 	}
 }
 
-// Close is a wrapper for os.File.Close, …
-//func Close(f io.Closer) {
-//	err := f.Close()
-//	AbortIf(err)
-//}
-
-// Create is a wrapper for os.Create.
-//func Create(name string) *os.File {
-//	f, err := os.Create(name)
-//	AbortIf(err)
-//	return f
-//}
-
 // Decoder is an interface compatible with json.Decoder, gob.Decoder,
 // xml.Decoder, …
 type Decoder interface {
@@ -60,37 +46,18 @@ type Encoder interface {
 	Encode(v interface{}) error
 }
 
-// MarshalJSON is a wrapper for json.Marshal.
-func MarshalJSON(v interface{}) []byte {
-	data, err := json.Marshal(v)
-	AbortIf(err)
+// UnmarshalYAML is a wrapper for json.Unmarshal.
+func UnmarshalYaml(data []byte, v interface{}) {
+	err := yaml.Unmarshal(data, v)
+	PanicIf(err)
+}
+
+// MarshalYaml is a wrapper for toml.Marshal.
+func MarshalYaml(v interface{}) []byte {
+	data, err := yaml.Marshal(v)
+	PanicIf(err)
 	return data
 }
-
-//func MarshalIndentJSON(v interface{}, prefix, indent string) []byte {
-//	data, err := json.MarshalIndent(v, prefix, indent)
-//	AbortIf(err)
-//	return data
-//}
-
-// UnmarshalJSON is a wrapper for json.Unmarshal.
-func UnmarshalJSON(data []byte, v interface{}) {
-	err := json.Unmarshal(data, v)
-	AbortIf(err)
-}
-
-// MarshalToml is a wrapper for toml.Marshal.
-func MarshalToml(v interface{}) []byte {
-	data, err := toml.Marshal(v)
-	AbortIf(err)
-	return data
-}
-
-// UnmarshalToml is a wrapper for toml.Unmarshal.
-//func UnmarshalToml(data []byte, v interface{}) {
-//	err := toml.Unmarshal(data, v)
-//	AbortIf(err)
-//}
 
 // WriteFile is a wrapper for ioutil.WriteFile.
 func WriteFile(name string, buf []byte, perm os.FileMode) {

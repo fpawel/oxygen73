@@ -1,108 +1,121 @@
 package cfg
 
 import (
+	"fmt"
 	"github.com/fpawel/comm"
 	"github.com/fpawel/oxygen73/internal/pkg/must"
-	"github.com/pelletier/go-toml"
-	"github.com/powerman/structlog"
+	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 type Config struct {
-	Main                  Hardware `toml:"main" comment:"параметры стенда"`
-	Hum                   Hardware `toml:"hum" comment:"параметры датчика влажности"`
-	LogComport            bool     `toml:"log_comport" comment:"логгирование посылок COM порта"`
-	SaveMeasurementsCount int      `toml:"save_measurements_count" comment:"количество сохраняемых измерений"`
+	Main                  Hardware `yaml:"main"`
+	Hum                   Hardware `yaml:"hum"`
+	LogComm               bool     `yaml:"log_comm"`
+	SaveMeasurementsCount int      `yaml:"save_measurements_count"`
 }
 
 type Hardware struct {
-	Comport               string `toml:"comport" comment:"имя СОМ порта проибора"`
-	ReadTimeoutMillis     int    `toml:"read_timeout" comment:"таймаут получения ответа, мс"`
-	ReadByteTimeoutMillis int    `toml:"read_byte_timeout" comment:"таймаут окончания ответа, мс"`
-	MaxAttemptsRead       int    `toml:"max_attempts_read" comment:"число попыток получения ответа"`
-	PauseMillis           int    `toml:"pause" comment:"пауза перед опросом, мс"`
+	Comport            string        `yaml:"comport"`
+	TimeoutGetResponse time.Duration `yaml:"timeout_get_response"`
+	TimeoutEndResponse time.Duration `yaml:"timeout_end_response"`
+	MaxAttemptsRead    int           `yaml:"max_attempts_read"`
+	Pause              time.Duration `yaml:"pause"`
 }
 
 func (x Hardware) Comm() comm.Config {
 	return comm.Config{
-		ReadTimeoutMillis:     x.ReadTimeoutMillis,
-		ReadByteTimeoutMillis: x.ReadByteTimeoutMillis,
-		MaxAttemptsRead:       x.MaxAttemptsRead,
-		PauseMillis:           x.PauseMillis,
+		TimeoutGetResponse: x.TimeoutGetResponse,
+		TimeoutEndResponse: x.TimeoutEndResponse,
+		MaxAttemptsRead:    x.MaxAttemptsRead,
+		Pause:              x.Pause,
 	}
 }
 
-func Open(log *structlog.Logger) {
-	defer func() {
-		comm.SetEnableLog(config.LogComport)
-	}()
-	if _, err := os.Stat(fileName()); os.IsNotExist(err) {
-		save()
-		return
-	}
-	data, err := ioutil.ReadFile(fileName())
-	must.AbortIf(err)
-	if err = toml.Unmarshal(data, &config); err != nil {
-		log.PrintErr(err, "file", fileName())
-	}
-}
-
-func SetToml(strToml string) error {
-	mu.Lock()
-	defer mu.Unlock()
-	if err := toml.Unmarshal([]byte(strToml), &config); err != nil {
+func SetYaml(strYaml string) error {
+	if err := yaml.Unmarshal([]byte(strYaml), &config); err != nil {
 		return err
 	}
-	comm.SetEnableLog(config.LogComport)
-	write([]byte(strToml))
+	mu.Lock()
+	defer mu.Unlock()
+	comm.SetEnableLog(config.LogComm)
+	mustWrite([]byte(strYaml))
 	return nil
+}
+
+func GetYaml() string {
+	mu.Lock()
+	defer mu.Unlock()
+	return string(must.MarshalYaml(&config))
 }
 
 func Set(v Config) {
 	mu.Lock()
 	defer mu.Unlock()
-	must.UnmarshalJSON(must.MarshalJSON(&v), &config)
-	comm.SetEnableLog(config.LogComport)
-	save()
+	data := must.MarshalYaml(&v)
+	must.UnmarshalYaml(data, &config)
+	comm.SetEnableLog(config.LogComm)
+	mustWrite(data)
 	return
 }
 
 func Get() (result Config) {
 	mu.Lock()
 	defer mu.Unlock()
-	must.UnmarshalJSON(must.MarshalJSON(&config), &result)
+	must.UnmarshalYaml(must.MarshalYaml(&config), &result)
 	return
 }
 
-func fileName() string {
+func mustWrite(b []byte) {
+	must.WriteFile(filename(), b, 0666)
+}
+
+func filename() string {
 	return filepath.Join(filepath.Dir(os.Args[0]), "config.toml")
-}
-func save() {
-	write(must.MarshalToml(config))
-}
-func write(data []byte) {
-	must.WriteFile(fileName(), data, 0666)
 }
 
 var (
 	mu     sync.Mutex
-	config = Config{
-		SaveMeasurementsCount: 20,
-		LogComport:            false,
-		Main: Hardware{
-			ReadByteTimeoutMillis: 50,
-			ReadTimeoutMillis:     700,
-			MaxAttemptsRead:       3,
-			Comport:               "COM1",
-		},
-		Hum: Hardware{
-			ReadByteTimeoutMillis: 50,
-			ReadTimeoutMillis:     700,
-			MaxAttemptsRead:       3,
-			Comport:               "COM2",
-		},
-	}
+	config = func() Config {
+		x := Config{
+			SaveMeasurementsCount: 20,
+			LogComm:               false,
+			Main: Hardware{
+				TimeoutEndResponse: 50 * time.Millisecond,
+				TimeoutGetResponse: 700 * time.Millisecond,
+				MaxAttemptsRead:    3,
+				Comport:            "COM1",
+			},
+			Hum: Hardware{
+				TimeoutEndResponse: 50 * time.Millisecond,
+				TimeoutGetResponse: 700 * time.Millisecond,
+				MaxAttemptsRead:    3,
+				Comport:            "COM2",
+			},
+		}
+		filename := filename()
+
+		mustWrite := func() {
+			mustWrite(must.MarshalYaml(&x))
+		}
+
+		if _, err := os.Stat(filename); os.IsNotExist(err) {
+			mustWrite()
+		}
+
+		data, err := ioutil.ReadFile(filename)
+		must.PanicIf(err)
+
+		if err = yaml.Unmarshal(data, &x); err != nil {
+			fmt.Println(err, "file:", filename)
+			mustWrite()
+		}
+
+		comm.SetEnableLog(x.LogComm)
+		return x
+	}()
 )

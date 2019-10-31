@@ -22,8 +22,8 @@ service MainSvc {
    list<apitypes.LogEntry> LogEntriesOfDay(1:apitypes.TimeUnixMillis daytime, 2:string filter)
 
    apitypes.AppConfig getAppConfig()
-   oneway void setAppConfig(1:apitypes.AppConfig appConfig)
+   void setAppConfig(1:apitypes.AppConfig appConfig)
 
-   string getAppConfigToml()
-   oneway void setAppConfigToml(1:string appConfigToml)
+   string getAppConfigYaml()
+   void setAppConfigYaml(1:string appConfigToml)
 }

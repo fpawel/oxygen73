@@ -1,2 +1,2 @@
 thrift -r --out %GOPATH%/src/github.com/fpawel/oxygen73/internal/thriftgen/ --gen go:package_prefix=github.com/fpawel/oxygen73/internal/thriftgen/  mainsvc.thrift
-thrift -r --out %DELPHIPATH%/src/gihub.com/oxygen73gui/gen-delphi/ --gen delphi mainsvc.thrift
+thrift -r --out %DELPHIPATH%/src/github.com/fpawel/oxygen73gui/gen-delphi/ --gen delphi mainsvc.thrift

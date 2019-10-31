@@ -7,7 +7,6 @@ import (
 	"github.com/fpawel/oxygen73/internal/cfg"
 	"github.com/fpawel/oxygen73/internal/data"
 	"github.com/fpawel/oxygen73/internal/gui"
-	"github.com/fpawel/oxygen73/internal/pkg/must"
 	"github.com/fpawel/oxygen73/internal/thriftgen/apitypes"
 	"github.com/fpawel/oxygen73/internal/thriftgen/mainsvc"
 	"github.com/jmoiron/sqlx"
@@ -21,12 +20,12 @@ type mainSvcHandler struct {
 
 var _ mainsvc.MainSvc = new(mainSvcHandler)
 
-func (x *mainSvcHandler) GetAppConfigToml(ctx context.Context) (string, error) {
-	return string(must.MarshalToml(cfg.Get())), nil
+func (x *mainSvcHandler) GetAppConfigYaml(ctx context.Context) (string, error) {
+	return cfg.GetYaml(), nil
 }
 
-func (x *mainSvcHandler) SetAppConfigToml(ctx context.Context, appConfigToml string) error {
-	return cfg.SetToml(appConfigToml)
+func (x *mainSvcHandler) SetAppConfigYaml(ctx context.Context, appConfigToml string) error {
+	return cfg.SetYaml(appConfigToml)
 }
 
 func (x *mainSvcHandler) GetAppConfig(ctx context.Context) (*apitypes.AppConfig, error) {

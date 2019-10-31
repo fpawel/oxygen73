@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"github.com/fpawel/oxygen73/internal"
-	"github.com/fpawel/oxygen73/internal/cfg"
 	"github.com/fpawel/oxygen73/internal/data"
 	"github.com/fpawel/oxygen73/internal/gui"
 	"github.com/fpawel/oxygen73/internal/pkg/winapi"
@@ -24,9 +23,6 @@ func Main() {
 
 	// общий контекст приложения с прерыванием
 	ctx, interrupt := context.WithCancel(context.Background())
-
-	// открыть конфиг
-	cfg.Open(log)
 
 	// соединение с базой данных
 	db := data.OpenProd()

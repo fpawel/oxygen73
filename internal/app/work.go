@@ -23,24 +23,12 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 		panic(err)
 	}
 
-	comPort := comport.NewPort(func() comport.Config {
-		return comport.Config{
-			Baud:        115200,
-			ReadTimeout: time.Millisecond,
-			Name:        cfg.Get().Main.Comport,
-		}
-	})
-
-	comPortHum := comport.NewPort(func() comport.Config {
-		return comport.Config{
-			Baud:        9600,
-			ReadTimeout: time.Millisecond,
-			Name:        cfg.Get().Hum.Comport,
-		}
-	})
+	comPort := new(comport.Port)
+	comPortHum := new(comport.Port)
 
 	go func() {
 		defer wg.Done()
+
 		var (
 			measurements                data.Measurements
 			comportName, comportHumName string
@@ -53,6 +41,28 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 
 	workerLoop:
 		for {
+
+			if err := comPort.SetConfig(comport.Config{
+				Baud:        115200,
+				ReadTimeout: time.Millisecond,
+				Name:        cfg.Get().Main.Comport,
+			}); err != nil {
+				err = merry.Append(err, comportName).Append("стенд")
+				gui.StatusComportErr(err)
+				pause(ctx.Done(), time.Second)
+				continue
+			}
+
+			if err := comPortHum.SetConfig(comport.Config{
+				Baud:        9600,
+				ReadTimeout: time.Millisecond,
+				Name:        cfg.Get().Hum.Comport,
+			}); err != nil {
+				err = merry.Append(err, comportHumName).Append("датчик влажности")
+				gui.StatusComportHumErr(err)
+				pause(ctx.Done(), time.Second)
+				continue
+			}
 
 			if ctx.Err() != nil {
 				log.Info("close worker because of context: " + ctx.Err().Error())
@@ -81,6 +91,7 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				if err != nil {
 					err = merry.Append(err, comportHumName).Append("датчик влажности")
 					gui.StatusComportHumErr(err)
+					pause(ctx.Done(), time.Second)
 					return
 				}
 				gui.StatusComportHumOk(comportHumName + ": датчик влажности: связь установлена")
@@ -99,7 +110,7 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				}
 				err = merry.Append(err, comportName).Append("стенд")
 				gui.StatusComportErr(err)
-				pause(ctx.Done(), c.Main.Comm().ReadTimeout())
+				pause(ctx.Done(), time.Second)
 				continue workerLoop
 			}
 
