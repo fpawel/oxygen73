@@ -104,7 +104,7 @@ WHERE tm BETWEEN julianday((SELECT created_at FROM bucket WHERE bucket_id=?)) AN
 				Value:       x.Value,
 			}
 		}
-		gui.ProductMeasurements(ms)
+		gui.ProductMeasurements(bucketID, ms)
 	}()
 	return nil
 }

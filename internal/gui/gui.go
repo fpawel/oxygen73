@@ -35,8 +35,9 @@ func statusComportHum(m StatusMessage) bool {
 	return w.SendJson(MsgStatusComportHum, m)
 }
 
-func Measurements(ms []data.Measurement) bool {
+func Measurements(bucketID int64, ms []data.Measurement) bool {
 	buf := new(bytes.Buffer)
+	writeBinary(buf, bucketID)
 	writeBinary(buf, int64(len(ms)))
 	for _, m := range ms {
 		writeMeasurement(buf, m)
@@ -48,8 +49,9 @@ func ErrorOccurred(err error) bool {
 	return w.SendString(MsgErrorOccurred, err.Error())
 }
 
-func ProductMeasurements(ms []data.Measurement1) bool {
+func ProductMeasurements(bucketID int64, ms []data.Measurement1) bool {
 	buf := new(bytes.Buffer)
+	writeBinary(buf, bucketID)
 	writeBinary(buf, int64(len(ms)))
 	for _, m := range ms {
 		writeBinary(buf, m.StoredAt.UnixNano()/1000000) // количество миллисекунд метки времени
@@ -61,8 +63,9 @@ func ProductMeasurements(ms []data.Measurement1) bool {
 	return w.SendMessage(MsgProductMeasurements, buf.Bytes())
 }
 
-func NewMeasurements(ms []data.Measurement) bool {
+func NewMeasurements(bucketID int64, ms []data.Measurement) bool {
 	buf := new(bytes.Buffer)
+	writeBinary(buf, bucketID)
 	writeBinary(buf, int64(len(ms)))
 	for _, m := range ms {
 		writeMeasurement(buf, m)
