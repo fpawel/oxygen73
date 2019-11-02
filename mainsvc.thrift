@@ -7,7 +7,7 @@ service MainSvc {
    list<apitypes.YearMonth> listYearMonths()
    list<apitypes.Bucket> listBucketsOfYearMonth(1:i32 year, 2:i32 month)
 
-   oneway void requestMeasurements(1:apitypes.TimeUnixMillis timeFrom, 2:apitypes.TimeUnixMillis timeTo)
+   oneway void requestMeasurements(1:i64 bucketID)
    oneway void requestProductMeasurements(1:i64 bucketID, 2:i32 place)
 
    oneway void createNewParty()

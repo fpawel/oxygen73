@@ -123,11 +123,18 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				measurements = nil
 				wg.Add(1)
 				go func() {
+					defer wg.Done()
 					if err := data.SaveMeasurements(saveMeasurements, db); err != nil {
 						log.PrintErr("не удалось сохранить измерения", "reason", err)
+						return
 					}
-					gui.NewMeasurements(saveMeasurements)
-					wg.Done()
+					var bucketID int64
+					if err := db.GetContext(ctx, &bucketID, `SELECT bucket_id FROM last_bucket`); err != nil {
+						log.PrintErr(merry.Append(err, "can't get last bucket id"))
+						return
+					}
+					gui.NewMeasurements(bucketID, saveMeasurements)
+
 				}()
 			}
 		}

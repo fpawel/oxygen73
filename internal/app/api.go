@@ -109,7 +109,7 @@ WHERE tm BETWEEN julianday((SELECT created_at FROM bucket WHERE bucket_id=?)) AN
 	return nil
 }
 
-func (x *mainSvcHandler) RequestMeasurements(ctx context.Context, timeFrom apitypes.TimeUnixMillis, timeTo apitypes.TimeUnixMillis) error {
+func (x *mainSvcHandler) RequestMeasurements(ctx context.Context, bucketID int64) error {
 	go func() {
 		var xs []measurement
 		err := x.db.SelectContext(ctx, &xs, `
@@ -120,13 +120,13 @@ SELECT stored_at,
        place20, place21, place22, place23, place24, place25, place26, place27, place28, place29,
        place30, place31, place32, place33, place34, place35, place36, place37, place38, place39,
        place40, place41, place42, place43, place44, place45, place46, place47, place48, place49
-FROM measurement1 WHERE tm BETWEEN julianday(?) AND julianday(?)`,
-			unixMillisToTime(timeFrom), unixMillisToTime(timeTo))
+FROM measurement1 WHERE tm BETWEEN
+    julianday((SELECT created_at FROM bucket WHERE bucket_id = ?)) AND 
+    julianday((SELECT updated_at FROM bucket WHERE bucket_id = ?))`, bucketID, bucketID)
 		if err != nil {
 			log.PrintErr("select measurements fail",
 				"reason", err,
-				"time_from", unixMillisToTime(timeFrom),
-				"time_to", unixMillisToTime(timeTo))
+				"bucket_id", bucketID)
 			return
 		}
 		ms := make([]data.Measurement, len(xs))
@@ -147,7 +147,7 @@ FROM measurement1 WHERE tm BETWEEN julianday(?) AND julianday(?)`,
 				},
 			}
 		}
-		gui.Measurements(ms)
+		gui.Measurements(bucketID, ms)
 	}()
 	return nil
 }
