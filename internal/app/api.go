@@ -277,13 +277,19 @@ func (x *mainSvcHandler) FindProductsBySerial(ctx context.Context, serial int32)
 		BucketUpdatedAt time.Time `db:"bucket_updated_at"`
 	}
 	err := x.db.SelectContext(ctx, &xs, `
-SELECT place, product.product_id, product.party_id, serial, party.created_at AS party_created_at,
-       bucket_id, bucket.created_at AS bucket_created_at, bucket.updated_at AS bucket_updated_at
-FROM  product 
-INNER JOIN party USING (party_id)
-INNER JOIN bucket USING (party_id)
-WHERE serial = ? 
-ORDER BY bucket.created_at DESC `, serial)
+SELECT product.product_id AS product_id,
+       place,
+       serial,
+       party.party_id AS party_id,
+       party.created_at  AS party_created_at,
+       bucket.bucket_id AS bucket_id,
+       bucket.created_at AS bucket_created_at,
+       bucket.updated_at AS bucket_updated_at
+FROM product
+         INNER JOIN party USING (party_id)
+         INNER JOIN bucket USING (party_id)
+WHERE serial = ?
+ORDER BY bucket.created_at; `, serial)
 	if err != nil {
 		return nil, err
 	}
