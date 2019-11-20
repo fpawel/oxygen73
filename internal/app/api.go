@@ -340,6 +340,7 @@ func parseTime(sqlStr string) time.Time {
 }
 
 type measurement struct {
+	Tm          float64  `db:"tm"`
 	StoredAt    string   `db:"stored_at"`
 	Temperature *float64 `db:"temperature"`
 	Pressure    *float64 `db:"pressure"`

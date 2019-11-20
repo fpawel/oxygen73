@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"github.com/apache/thrift/lib/go/thrift"
 	"github.com/fpawel/oxygen73/internal/pkg/must"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"time"
 )
 
 func runServer(db *sqlx.DB) func() {
@@ -31,6 +33,21 @@ func runServer(db *sqlx.DB) func() {
 		panic(err)
 	}
 	handler := &mainSvcHandler{db: db}
+
+	// "разогрев" БД
+
+	_, _ = handler.ListYearMonths(context.Background())
+	_, _ = handler.ListBucketsOfYearMonth(context.Background(), int32(time.Now().Year()), int32(time.Now().Month()))
+	{
+		var measurements []measurement
+		t := time.Now()
+		if err := db.Select(&measurements, `SELECT * FROM measurement LIMIT 100000`); err != nil {
+			panic(err)
+		}
+		log.Printf("db: %d measurements, %v time", len(measurements), time.Since(t))
+		measurements = nil
+	}
+
 	processor := mainsvc.NewMainSvcProcessor(handler)
 	server := thrift.NewTSimpleServer4(processor, transport,
 		thrift.NewTTransportFactory(), thrift.NewTBinaryProtocolFactoryDefault())
