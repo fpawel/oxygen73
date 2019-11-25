@@ -75,7 +75,7 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 			}
 			if c.Hum.Comport != comportHumName {
 				log.ErrIfFail(comPortHum.Close)
-				comportName = c.Hum.Comport
+				comportHumName = c.Hum.Comport
 			}
 
 			reader := comPort.NewResponseReader(ctx, c.Main.Comm())
@@ -113,29 +113,12 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 				pause(ctx.Done(), time.Second)
 				continue workerLoop
 			}
-
 			wgHum.Wait()
 			measurement.StoredAt = time.Now()
-
 			measurements = append(measurements, measurement)
 			if len(measurements) >= c.SaveMeasurementsCount {
-				saveMeasurements := measurements
+				saveMeasurements(measurements, db, ctx)
 				measurements = nil
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if err := data.SaveMeasurements(saveMeasurements, db); err != nil {
-						log.PrintErr("не удалось сохранить измерения", "reason", err)
-						return
-					}
-					var bucketID int64
-					if err := db.GetContext(ctx, &bucketID, `SELECT bucket_id FROM last_bucket`); err != nil {
-						log.PrintErr(merry.Append(err, "can't get last bucket id"))
-						return
-					}
-					gui.NewMeasurements(bucketID, saveMeasurements)
-
-				}()
 			}
 		}
 	}()
@@ -144,6 +127,19 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 		wg.Wait()
 		log.ErrIfFail(comPort.Close)
 	}
+}
+
+func saveMeasurements(measurements data.Measurements, db *sqlx.DB, ctx context.Context) {
+	if err := data.SaveMeasurements(measurements, db); err != nil {
+		log.PrintErr("не удалось сохранить измерения", "reason", err)
+		return
+	}
+	var bucketID int64
+	if err := db.GetContext(ctx, &bucketID, `SELECT bucket_id FROM last_bucket`); err != nil {
+		log.PrintErr(merry.Append(err, "can't get last bucket id"))
+		return
+	}
+	gui.NewMeasurements(bucketID, measurements)
 }
 
 func readBlock(n int, reader modbus.ResponseReader, me *data.Measurement) error {
