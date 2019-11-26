@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/binary"
+	"fmt"
 	"github.com/ansel1/merry"
 	"github.com/fpawel/comm/comport"
 	"github.com/fpawel/comm/modbus"
@@ -87,7 +88,14 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 			wgHum.Add(1)
 			go func() {
 				defer wgHum.Done()
-				v, err := modbus.Read3UInt16(log, readerHum, 16, 0x0103, binary.BigEndian)
+				var hum, temp uint16
+
+				_, err := modbus.Read3(log, readerHum, 16, 0x0102, 2,
+					func(_, response []byte) (string, error) {
+						temp = binary.BigEndian.Uint16(response[3:5])
+						hum = binary.BigEndian.Uint16(response[5:7])
+						return fmt.Sprintf("T=%d,H=%d", temp, hum), nil
+					})
 				if err != nil {
 					err = merry.Append(err, comportHumName).Append("датчик влажности")
 					gui.StatusComportHumErr(err)
@@ -95,7 +103,8 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 					return
 				}
 				gui.StatusComportHumOk(comportHumName + ": датчик влажности: связь установлена")
-				measurement.Humidity = float64(v) / 100.
+				measurement.Humidity = float64(hum) / 100.
+				measurement.Temperature = float64(temp) / 100.
 			}()
 
 			for n := 0; n < 5; n++ {
@@ -153,7 +162,7 @@ func readBlock(n int, reader modbus.ResponseReader, me *data.Measurement) error 
 		return err
 	}
 	if n == 0 {
-		me.Temperature = values[10]
+		//me.Temperature = values[10]
 		me.Pressure = values[11]
 	}
 	copy(me.Places[n*10:(n+1)*10], values[:10])
