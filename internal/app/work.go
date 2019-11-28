@@ -88,12 +88,12 @@ func runReadMeasurements(ctx context.Context, db *sqlx.DB) context.CancelFunc {
 			wgHum.Add(1)
 			go func() {
 				defer wgHum.Done()
-				var hum, temp uint16
+				var hum, temp int16
 
 				_, err := modbus.Read3(log, readerHum, 16, 0x0102, 2,
 					func(_, response []byte) (string, error) {
-						temp = binary.BigEndian.Uint16(response[3:5])
-						hum = binary.BigEndian.Uint16(response[5:7])
+						temp = int16(binary.BigEndian.Uint16(response[3:5]))
+						hum = int16(binary.BigEndian.Uint16(response[5:7]))
 						return fmt.Sprintf("T=%d,H=%d", temp, hum), nil
 					})
 				if err != nil {
