@@ -36,6 +36,7 @@ func statusComportHum(m StatusMessage) bool {
 }
 
 func Measurements(bucketID int64, ms []data.Measurement) bool {
+	log.Debug(fmt.Sprintf("bucket %d: %d measurements", bucketID, len(ms)))
 	buf := new(bytes.Buffer)
 	writeBinary(buf, bucketID)
 	writeBinary(buf, int64(len(ms)))
@@ -50,6 +51,7 @@ func ErrorOccurred(err error) bool {
 }
 
 func ProductMeasurements(bucketID int64, ms []data.Measurement1) bool {
+	log.Debug(fmt.Sprintf("bucket %d: %d measurements", bucketID, len(ms)))
 	buf := new(bytes.Buffer)
 	writeBinary(buf, bucketID)
 	writeBinary(buf, int64(len(ms)))
