@@ -63,15 +63,36 @@ func VacuumEnd() bool {
 func Measurements(bucketID int64, ms []data.Measurement) bool {
 	log.Debug(fmt.Sprintf("showing bucket %d: %d measurements", bucketID, len(ms)))
 	t := time.Now()
+
+	for n := 0; n < len(ms); {
+		p := ms[n:]
+		offset := len(p)
+		if offset > 10000 {
+			offset = 10000
+		}
+		p = p[:offset]
+		n += offset
+
+		buf := new(bytes.Buffer)
+		writeBinary(buf, bucketID)
+		writeBinary(buf, int64(len(p)))
+		for _, m := range p {
+			writeMeasurement(buf, m)
+		}
+		if !w.SendMessage(MsgMeasurements, buf.Bytes()) {
+			return false
+		}
+	}
+
 	buf := new(bytes.Buffer)
 	writeBinary(buf, bucketID)
-	writeBinary(buf, int64(len(ms)))
-	for _, m := range ms {
-		writeMeasurement(buf, m)
+	writeBinary(buf, int64(0))
+	if !w.SendMessage(MsgMeasurements, buf.Bytes()) {
+		return false
 	}
-	r := w.SendMessage(MsgMeasurements, buf.Bytes())
+
 	log.Debug(fmt.Sprintf("bucket %d: %d measurements: %v", bucketID, len(ms), time.Since(t)))
-	return r
+	return true
 }
 
 func ErrorOccurred(err error) bool {
