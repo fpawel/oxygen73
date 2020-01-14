@@ -26,4 +26,6 @@ service MainSvc {
 
    string getAppConfigYaml()
    void setAppConfigYaml(1:string appConfigToml)
+
+   void vacuum()
 }

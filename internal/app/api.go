@@ -10,6 +10,7 @@ import (
 	"github.com/fpawel/oxygen73/internal/thriftgen/apitypes"
 	"github.com/fpawel/oxygen73/internal/thriftgen/mainsvc"
 	"github.com/jmoiron/sqlx"
+	"github.com/lxn/win"
 	"math"
 	"time"
 )
@@ -20,15 +21,36 @@ type mainSvcHandler struct {
 
 var _ mainsvc.MainSvc = new(mainSvcHandler)
 
-func (x *mainSvcHandler) GetAppConfigYaml(ctx context.Context) (string, error) {
+func (x *mainSvcHandler) Vacuum(_ context.Context) error {
+	go func() {
+		t := time.Now()
+		log.Info("vacuum begin: " + t.String())
+		gui.VacuumBegin()
+		_, err := x.db.Exec(`VACUUM`)
+		gui.VacuumEnd()
+		if err != nil {
+			log.PrintErr(fmt.Sprintf("vacuum end: %v: %v: %v", t, time.Since(t), err))
+			gui.ErrorOccurred(err)
+			return
+		}
+		log.Info(fmt.Sprintf("vacuum end: %v: %v", t, time.Since(t)))
+		gui.MsgBox("Данные ЭХЯ О2",
+			fmt.Sprintf("Дефрагментация завершена успешно за %s", time.Since(t)),
+			win.MB_ICONINFORMATION|win.MB_OK)
+
+	}()
+	return nil
+}
+
+func (x *mainSvcHandler) GetAppConfigYaml(_ context.Context) (string, error) {
 	return cfg.GetYaml(), nil
 }
 
-func (x *mainSvcHandler) SetAppConfigYaml(ctx context.Context, appConfigToml string) error {
+func (x *mainSvcHandler) SetAppConfigYaml(_ context.Context, appConfigToml string) error {
 	return cfg.SetYaml(appConfigToml)
 }
 
-func (x *mainSvcHandler) GetAppConfig(ctx context.Context) (*apitypes.AppConfig, error) {
+func (x *mainSvcHandler) GetAppConfig(_ context.Context) (*apitypes.AppConfig, error) {
 	c := cfg.Get()
 	return &apitypes.AppConfig{
 		Comport:         c.Main.Comport,
@@ -36,7 +58,7 @@ func (x *mainSvcHandler) GetAppConfig(ctx context.Context) (*apitypes.AppConfig,
 	}, nil
 }
 
-func (x *mainSvcHandler) SetAppConfig(ctx context.Context, appConfig *apitypes.AppConfig) error {
+func (x *mainSvcHandler) SetAppConfig(_ context.Context, appConfig *apitypes.AppConfig) error {
 	c := cfg.Get()
 	c.Main.Comport = appConfig.Comport
 	c.Hum.Comport = appConfig.ComportHumidity
@@ -51,6 +73,7 @@ func (x *mainSvcHandler) ListLastPartyProducts(ctx context.Context) ([]*apitypes
 	}
 	return x.ListProducts(ctx, partyID)
 }
+
 func (x *mainSvcHandler) SetProductSerialAtPlace(ctx context.Context, place int32, serial int32) (err error) {
 	_, err = x.db.ExecContext(ctx, `
 INSERT OR REPLACE INTO product(party_id, serial, place)
@@ -111,7 +134,11 @@ WHERE tm BETWEEN julianday((SELECT created_at FROM bucket WHERE bucket_id=?)) AN
 
 func (x *mainSvcHandler) RequestMeasurements(ctx context.Context, bucketID int64) error {
 	go func() {
+
+		log.Debug(fmt.Sprintf("opening bucket %d", bucketID))
+
 		var xs []measurement
+		t := time.Now()
 		err := x.db.SelectContext(ctx, &xs, `
 SELECT stored_at, 
        temperature, pressure, humidity,
@@ -147,6 +174,7 @@ FROM measurement1 WHERE tm BETWEEN
 				},
 			}
 		}
+		log.Debug(fmt.Sprintf("bucket %d: %d measurements: %v", bucketID, len(ms), time.Since(t)))
 		gui.Measurements(bucketID, ms)
 	}()
 	return nil
@@ -181,7 +209,7 @@ func (x *mainSvcHandler) GetParty(ctx context.Context, partyID int64) (*apitypes
 	}, nil
 }
 
-func (x *mainSvcHandler) ListBucketsOfYearMonth(ctx context.Context, year int32, month int32) ([]*apitypes.Bucket, error) {
+func (x *mainSvcHandler) ListBucketsOfYearMonth(_ context.Context, year int32, month int32) ([]*apitypes.Bucket, error) {
 	var xs []struct {
 		BucketID       int64     `db:"bucket_id"`
 		PartyID        int64     `db:"party_id"`
@@ -239,14 +267,14 @@ func (x *mainSvcHandler) CreateNewParty(ctx context.Context) error {
 	return nil
 }
 
-func (x *mainSvcHandler) ListLogEntriesDays(ctx context.Context) (r []apitypes.TimeUnixMillis, _ error) {
+func (x *mainSvcHandler) ListLogEntriesDays(_ context.Context) (r []apitypes.TimeUnixMillis, _ error) {
 	for _, t := range logfile.ListDays() {
 		r = append(r, timeUnixMillis(t))
 	}
 	return
 }
 
-func (x *mainSvcHandler) LogEntriesOfDay(ctx context.Context, daytime apitypes.TimeUnixMillis, filter string) (r []*apitypes.LogEntry, err error) {
+func (x *mainSvcHandler) LogEntriesOfDay(_ context.Context, daytime apitypes.TimeUnixMillis, filter string) (r []*apitypes.LogEntry, err error) {
 
 	var xs []logfile.Entry
 	t := unixMillisToTime(daytime)

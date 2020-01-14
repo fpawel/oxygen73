@@ -1,5 +1,6 @@
 PRAGMA foreign_keys = ON;
 PRAGMA encoding = 'UTF-8';
+PRAGMA auto_vacuum = INCREMENTAL;
 
 CREATE TABLE IF NOT EXISTS party
 (
@@ -139,6 +140,8 @@ SELECT bucket.*,
 FROM bucket
 INNER JOIN party USING (party_id)
 ORDER BY bucket.created_at;
+
+--VACUUM;
 
 -- CREATE VIEW measurement_ids AS
 -- SELECT (SELECT count(*) + 1 FROM measurement WHERE tm < O.tm) AS id, O.*

@@ -7,9 +7,12 @@ import (
 	"github.com/fpawel/gotools/pkg/copydata"
 	"github.com/fpawel/oxygen73/internal"
 	"github.com/fpawel/oxygen73/internal/data"
+	"github.com/fpawel/oxygen73/internal/pkg/must"
 	"github.com/fpawel/oxygen73/internal/pkg/winapi"
 	"github.com/lxn/win"
 	"github.com/powerman/structlog"
+	"strings"
+	"time"
 )
 
 type Msg = uintptr
@@ -22,6 +25,8 @@ const (
 	MsgMeasurements
 	MsgProductMeasurements
 	MsgErrorOccurred
+	MsgVacuumBegin
+	MsgVacuumEnd
 )
 
 //func WriteConsole(str string) bool {
@@ -35,15 +40,38 @@ func statusComportHum(m StatusMessage) bool {
 	return w.SendJson(MsgStatusComportHum, m)
 }
 
+func MsgBox(title, message string, style int) int {
+	hWnd := win.FindWindow(must.UTF16PtrFromString(internal.DelphiWindowClass), nil)
+	if hWnd == win.HWND_TOP {
+		return 0
+	}
+	return int(win.MessageBox(
+		hWnd,
+		must.UTF16PtrFromString(strings.ReplaceAll(message, "\x00", "␀")),
+		must.UTF16PtrFromString(strings.ReplaceAll(title, "\x00", "␀")),
+		uint32(style)))
+}
+
+func VacuumBegin() bool {
+	return w.SendString(MsgVacuumBegin, "")
+}
+
+func VacuumEnd() bool {
+	return w.SendString(MsgVacuumEnd, "")
+}
+
 func Measurements(bucketID int64, ms []data.Measurement) bool {
-	log.Debug(fmt.Sprintf("bucket %d: %d measurements", bucketID, len(ms)))
+	log.Debug(fmt.Sprintf("showing bucket %d: %d measurements", bucketID, len(ms)))
+	t := time.Now()
 	buf := new(bytes.Buffer)
 	writeBinary(buf, bucketID)
 	writeBinary(buf, int64(len(ms)))
 	for _, m := range ms {
 		writeMeasurement(buf, m)
 	}
-	return w.SendMessage(MsgMeasurements, buf.Bytes())
+	r := w.SendMessage(MsgMeasurements, buf.Bytes())
+	log.Debug(fmt.Sprintf("bucket %d: %d measurements: %v", bucketID, len(ms), time.Since(t)))
+	return r
 }
 
 func ErrorOccurred(err error) bool {
