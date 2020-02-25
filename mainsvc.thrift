@@ -28,4 +28,5 @@ service MainSvc {
    void setAppConfigYaml(1:string appConfigToml)
 
    void vacuum()
+   void deleteBucket(1:i64 bucketID)
 }

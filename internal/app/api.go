@@ -21,6 +21,11 @@ type mainSvcHandler struct {
 
 var _ mainsvc.MainSvc = new(mainSvcHandler)
 
+func (x *mainSvcHandler) DeleteBucket(ctx context.Context, bucketID int64) error {
+	_, err := x.db.Exec(`DELETE FROM bucket WHERE bucket_id = ?`, bucketID)
+	return err
+}
+
 func (x *mainSvcHandler) Vacuum(_ context.Context) error {
 	go func() {
 		t := time.Now()
